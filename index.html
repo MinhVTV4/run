@@ -271,14 +271,12 @@
                 let newMarkersList = [];
                 activeUserIds.forEach(userId => {
                     const userData = allLiveUsers[userId];
-                    if (userId === currentUser?.uid) return; 
                     const userLatLng = [userData.lat, userData.lng];
                     const userStatus = userData.status || 'Đang di chuyển';
                     const icon = createStatusIcon(userData.photo, userStatus);
                     
                     const newMarker = L.marker(userLatLng, { icon: icon });
                     
-                    // Click vào marker trên bản đồ để zoom
                     newMarker.on('click', () => {
                          map.flyTo(userLatLng, 18);
                     });
@@ -326,6 +324,7 @@
         function openSheet() {
             bottomSheetContainer.classList.remove('hidden');
             requestAnimationFrame(() => {
+                sheetBackdrop.classList.remove('opacity-0');
                 sheetBackdrop.classList.add('opacity-100');
                 memberSheet.classList.remove('translate-y-full');
             });
@@ -345,6 +344,7 @@
                 return;
             }
             users.forEach(([userId, userData]) => {
+                // Không hiển thị chính mình trong danh sách
                 if (userId === currentUser?.uid) return;
                 const li = document.createElement('li');
                 li.className = 'flex items-center gap-3 p-3 border-b';
