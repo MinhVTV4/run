@@ -170,6 +170,7 @@
         // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
         let currentUser = null, map, markers, isLive = false, watchId = null;
         let myLocation = null, wakeLock = null, allLiveUsers = {};
+        let markerObjects = {}; // Để lưu trữ các đối tượng marker
         let isWarningEnabled = false;
         let warningDistance = 500;
         let distanceCheckInterval = null;
@@ -272,7 +273,6 @@
             markers = L.markerClusterGroup();
             map.addLayer(markers);
 
-            // Gắn sự kiện để xử lý nút bấm trong popup
             map.on('popupopen', function(e) {
                 const messageButton = e.popup._contentNode.querySelector('.message-from-popup-button');
                 if (messageButton) {
@@ -324,7 +324,7 @@
             };
 
             const currentStatus = statusSelector.value;
-            if (currentStatus) { // Chỉ thêm trạng thái nếu người dùng đã chọn
+            if (currentStatus) {
                 payload.status = currentStatus;
             }
             
@@ -340,7 +340,7 @@
         }
 
         function createStatusIcon(photoUrl, status) {
-            let borderColorClass = 'border-gray-400'; // Mặc định cho người chưa chọn trạng thái
+            let borderColorClass = 'border-gray-400';
             if (status === 'Đang di chuyển') borderColorClass = 'border-blue-500';
             if (status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
             if (status === 'Đến nơi') borderColorClass = 'border-green-500';
@@ -359,7 +359,8 @@
                 if (!map) return;
                 allLiveUsers = snapshot.val() || {};
                 markers.clearLayers();
-                let newMarkersList = [];
+                markerObjects = {}; // Xóa và tạo lại
+                
                 Object.keys(allLiveUsers).forEach(userId => {
                     const userData = allLiveUsers[userId];
                     const userLatLng = [userData.lat, userData.lng];
@@ -377,9 +378,22 @@
                     `;
                     newMarker.bindPopup(popupContent);
 
-                    newMarkersList.push(newMarker);
+                    // Logic mới khi nhấn vào marker
+                    newMarker.on('click', (e) => {
+                        const clickedMarker = e.target;
+                        if (map.getZoom() < 17) {
+                            map.flyTo(clickedMarker.getLatLng(), 17, {animate: true, duration: 0.7});
+                            map.once('moveend', () => {
+                                clickedMarker.openPopup();
+                            });
+                        } else {
+                            clickedMarker.openPopup();
+                        }
+                    });
+
+                    markers.addLayer(newMarker);
+                    markerObjects[userId] = newMarker; // Lưu marker lại
                 });
-                markers.addLayers(newMarkersList);
                 updateMemberList();
             });
         }
@@ -406,7 +420,7 @@
                 const li = document.createElement('li');
                 li.className = 'flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg';
                 
-                let borderColorClass = 'border-gray-400'; // Default for no status
+                let borderColorClass = 'border-gray-400';
                 if (userData.status === 'Đang di chuyển') borderColorClass = 'border-blue-500';
                 if (userData.status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
                 if (userData.status === 'Đến nơi') borderColorClass = 'border-green-500';
@@ -433,7 +447,19 @@
             });
         }
         
-        function handleMemberClick(userId) { const user = allLiveUsers[userId]; if (user && map) { map.flyTo([user.lat, user.lng], 18); closeSheet(); } }
+        function handleMemberClick(userId) {
+            const user = allLiveUsers[userId];
+            const marker = markerObjects[userId];
+            if (user && map && marker) {
+                closeSheet();
+                map.flyTo([user.lat, user.lng], 17, {animate: true, duration: 0.7});
+                map.once('moveend', () => {
+                    markers.zoomToShowLayer(marker, () => {
+                        marker.openPopup();
+                    });
+                });
+            }
+        }
 
         // --- PHẦN 8: LOGIC TIN NHẮN & CÀI ĐẶT ---
         function openQuickMessageModal(recipientId, recipientName) { messageRecipientName.textContent = `Gửi tin nhắn cho ${recipientName}`; quickMessageModal.dataset.recipientId = recipientId; quickMessageModal.classList.remove('hidden'); requestAnimationFrame(() => { messageModalContent.classList.remove('scale-95', 'opacity-0'); messageModalContent.classList.add('scale-100', 'opacity-100'); }); }
