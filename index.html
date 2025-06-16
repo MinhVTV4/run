@@ -42,7 +42,6 @@
         .map-control-button:hover { background-color: #f3f4f6; }
         .map-control-button.active { background-color: #14b8a6; color: white; }
         .custom-marker-icon img { width: 100%; height: 100%; border-radius: 9999px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-        /* Bottom Sheet Styles */
         #bottomSheetContainer.hidden { display: none; }
         #sheetBackdrop { transition: opacity 0.3s ease-in-out; }
         #memberSheet { transition: transform 0.3s ease-in-out; }
@@ -150,7 +149,6 @@
         const fitToAllButton = document.getElementById('fitToAllButton');
         const wakeLockButton = document.getElementById('wakeLockButton');
         const statusSelector = document.getElementById('statusSelector');
-        // Thêm tham chiếu cho Bottom Sheet
         const bottomSheetContainer = document.getElementById('bottomSheetContainer');
         const sheetBackdrop = document.getElementById('sheetBackdrop');
         const memberSheet = document.getElementById('memberSheet');
@@ -165,7 +163,7 @@
         let watchId = null;
         let myLocation = null;
         let wakeLock = null;
-        let allLiveUsers = {}; // Cache dữ liệu người dùng đang online
+        let allLiveUsers = {};
 
         // --- PHẦN 3: XỬ LÝ AUTHENTICATION ---
         onAuthStateChanged(auth, user => {
@@ -200,23 +198,68 @@
         }
 
         // --- PHẦN 5: LOGIC CHIA SẺ VỊ TRÍ ---
-        function handleGoLive() { /* ... Không thay đổi ... */ }
-        function updateMyLocation(position) { /* ... Không thay đổi ... */ }
-        function removeMyLocationFromDB() { /* ... Không thay đổi ... */ }
-        function createStatusIcon(photoUrl, status) { /* ... Không thay đổi ... */ }
-        function handleGeoError(error) { /* ... Không thay đổi ... */ }
+        function handleGoLive() {
+            isLive = !isLive;
+            if (isLive) {
+                goLiveButton.textContent = "Dừng chia sẻ";
+                goLiveButton.classList.replace('bg-teal-500', 'bg-red-500');
+                goLiveButton.classList.replace('hover:bg-teal-600', 'hover:bg-red-600');
+                statusMessage.classList.remove('hidden');
+                statusSelector.classList.remove('hidden');
+                const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+                watchId = navigator.geolocation.watchPosition(updateMyLocation, handleGeoError, geoOptions);
+            } else {
+                goLiveButton.textContent = "Bắt đầu chia sẻ vị trí";
+                goLiveButton.classList.replace('bg-red-500', 'bg-teal-500');
+                goLiveButton.classList.replace('hover:bg-red-600', 'hover:bg-teal-600');
+                statusMessage.classList.add('hidden');
+                statusSelector.classList.add('hidden');
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                removeMyLocationFromDB();
+            }
+        }
         
+        function updateMyLocation(position) {
+            if (!currentUser) return;
+            const { latitude, longitude } = position.coords;
+            myLocation = [latitude, longitude];
+            const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
+            const currentStatus = statusSelector.value;
+            set(myLocationRef, {
+                lat: latitude, lng: longitude, name: currentUser.displayName,
+                photo: currentUser.photoURL, status: currentStatus,
+                timestamp: serverTimestamp()
+            });
+            onDisconnect(myLocationRef).remove();
+        }
+
+        function removeMyLocationFromDB() {
+             if (!currentUser) return;
+             const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
+             set(myLocationRef, null);
+             myLocation = null;
+        }
+
+        function createStatusIcon(photoUrl, status) {
+            let borderColorClass = 'border-blue-500';
+            if (status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
+            if (status === 'Đến nơi') borderColorClass = 'border-green-500';
+            if (status === 'Gặp sự cố') borderColorClass = 'border-red-600';
+            return L.divIcon({
+                html: `<img src="${photoUrl}" class="w-full h-full rounded-full border-4 ${borderColorClass}">`,
+                className: 'custom-marker-icon', iconSize: [40, 40],
+                iconAnchor: [20, 40], popupAnchor: [0, -40]
+            });
+        }
+
         function listenToLiveLocations() {
             const eventRef = ref(db, `live_locations/${EVENT_ID}`);
             onValue(eventRef, (snapshot) => {
                 if (!map) return;
-                
-                allLiveUsers = snapshot.val() || {}; // Cập nhật cache
+                allLiveUsers = snapshot.val() || {};
                 const activeUserIds = Object.keys(allLiveUsers);
-
                 markers.clearLayers();
                 let newMarkersList = [];
-                
                 activeUserIds.forEach(userId => {
                     const userData = allLiveUsers[userId];
                     const userLatLng = [userData.lat, userData.lng];
@@ -227,52 +270,73 @@
                     newMarker.bindPopup(popupContent);
                     newMarkersList.push(newMarker);
                 });
-                
                 markers.addLayers(newMarkersList);
-                updateMemberList(); // Cập nhật danh sách trong bottom sheet
+                updateMemberList();
             });
         }
         
+        function handleGeoError(error) {
+            console.error(error);
+            alert(`Lỗi vị trí: ${error.message}`);
+            if (isLive) handleGoLive();
+        }
+
         // --- PHẦN 6: HÀM ĐIỀU KHIỂN & BOTTOM SHEET ---
-        function handleRecenter() { /* ... Không thay đổi ... */ }
-        function handleFitToAll() { /* ... Không thay đổi ... */ }
-        async function handleWakeLock() { /* ... Không thay đổi ... */ }
+        function handleRecenter() {
+            if (myLocation && map) map.flyTo(myLocation, 16);
+            else alert("Chưa có vị trí của bạn để định vị.");
+        }
+
+        function handleFitToAll() {
+            if (map && markers.getBounds().isValid()) {
+                map.flyToBounds(markers.getBounds().pad(0.2));
+            } else {
+                alert("Không có ai khác đang chia sẻ vị trí.");
+            }
+        }
+
+        async function handleWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    if (wakeLock) {
+                        await wakeLock.release(); wakeLock = null; wakeLockButton.classList.remove('active');
+                    } else {
+                        wakeLock = await navigator.wakeLock.request('screen'); wakeLockButton.classList.add('active');
+                        wakeLock.addEventListener('release', () => { wakeLock = null; wakeLockButton.classList.remove('active'); });
+                    }
+                } catch (err) { console.error(`${err.name}, ${err.message}`); alert('Không thể kích hoạt chức năng giữ màn hình sáng.'); }
+            } else { alert('Trình duyệt của bạn không hỗ trợ chức năng này.'); }
+        }
 
         function openSheet() {
             bottomSheetContainer.classList.remove('hidden');
-            sheetBackdrop.classList.remove('opacity-0');
-            sheetBackdrop.classList.add('opacity-100');
-            memberSheet.classList.remove('translate-y-full');
+            requestAnimationFrame(() => {
+                sheetBackdrop.classList.add('opacity-100');
+                memberSheet.classList.remove('translate-y-full');
+            });
         }
 
         function closeSheet() {
             sheetBackdrop.classList.remove('opacity-100');
-            sheetBackdrop.classList.add('opacity-0');
             memberSheet.classList.add('translate-y-full');
-            setTimeout(() => {
-                bottomSheetContainer.classList.add('hidden');
-            }, 300); // Chờ animation kết thúc
+            setTimeout(() => bottomSheetContainer.classList.add('hidden'), 300);
         }
         
         function updateMemberList() {
             memberList.innerHTML = '';
             const users = Object.entries(allLiveUsers);
-            
             if (users.length === 0) {
                 memberList.innerHTML = '<li class="p-4 text-center text-gray-500">Không có thành viên nào đang hoạt động.</li>';
                 return;
             }
-
             users.forEach(([userId, userData]) => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center gap-3 p-3 border-b hover:bg-gray-100 cursor-pointer';
                 li.dataset.userId = userId;
-                
-                let borderColorClass = 'border-blue-500'; // Đang di chuyển
+                let borderColorClass = 'border-blue-500';
                 if (userData.status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
                 if (userData.status === 'Đến nơi') borderColorClass = 'border-green-500';
                 if (userData.status === 'Gặp sự cố') borderColorClass = 'border-red-600';
-
                 li.innerHTML = `
                     <img src="${userData.photo}" class="w-10 h-10 rounded-full border-2 ${borderColorClass}">
                     <div>
@@ -287,7 +351,7 @@
         function handleMemberClick(userId) {
              const user = allLiveUsers[userId];
              if (user && map) {
-                 map.flyTo([user.lat, user.lng], 18); // Zoom sát hơn
+                 map.flyTo([user.lat, user.lng], 18);
                  closeSheet();
              }
         }
@@ -302,18 +366,25 @@
         recenterButton.addEventListener('click', handleRecenter);
         fitToAllButton.addEventListener('click', handleFitToAll);
         wakeLockButton.addEventListener('click', handleWakeLock);
-        
-        // Sự kiện cho Bottom Sheet
         memberListButton.addEventListener('click', openSheet);
         sheetBackdrop.addEventListener('click', closeSheet);
         memberList.addEventListener('click', (e) => {
             const li = e.target.closest('li[data-user-id]');
-            if (li) {
-                handleMemberClick(li.dataset.userId);
-            }
+            if (li) handleMemberClick(li.dataset.userId);
         });
         
-        statusSelector.addEventListener('change', () => { /* ... Không thay đổi ... */ });
+        statusSelector.addEventListener('change', () => {
+            if (isLive && myLocation) {
+                 const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
+                 set(myLocationRef, {
+                    lat: myLocation[0], lng: myLocation[1], name: currentUser.displayName,
+                    photo: currentUser.photoURL,
+                    status: statusSelector.value,
+                    timestamp: serverTimestamp()
+                });
+            }
+        });
+
         if (!('wakeLock' in navigator)) { wakeLockButton.style.display = 'none'; }
 
     </script>
