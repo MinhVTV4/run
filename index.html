@@ -39,6 +39,13 @@
             align-items: center;
             gap: 12px;
         }
+        /* Tạo icon cho marker */
+        .user-marker-icon {
+            background-color: #2563eb;
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-slate-800 font-sans flex flex-col h-screen">
@@ -117,20 +124,24 @@
         const pauseIcon = document.getElementById('pauseIcon');
         const recenterButton = document.getElementById('recenterButton');
         const fitBoundsButton = document.getElementById('fitBoundsButton');
-        
         const coordsDisplay = document.getElementById('coords');
         const heartRateDisplay = document.getElementById('heartRate');
         const statusMessage = document.getElementById('healthStatusMessage');
-        // ĐÃ THÊM LẠI
         const averageSpeedDisplay = document.getElementById('averageSpeed');
         const calorieBurnedDisplay = document.getElementById('calorieBurned');
         
-        // --- PHẦN 2: BIẾN TRẠNG THÁI ---
+        // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
         let map;
         let marker;
         let polyline;
+        let userMarkerIcon = L.divIcon({
+            className: 'user-marker-icon',
+            iconSize: [18, 18]
+        });
         let isTracking = false;
         let isPaused = false;
+        let watchId = null; // ID để theo dõi vị trí
+        let heartRateIntervalId = null; // ID để mô phỏng nhịp tim
 
         // --- PHẦN 3: KHỞI TẠO ---
         function initMap() {
@@ -145,13 +156,73 @@
             polyline = L.polyline([], { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(map);
         }
 
-        // --- PHẦN 4: HÀM ĐIỀU KHIỂN ---
+        // --- PHẦN 4: HÀM LOGIC CHÍNH ---
+
+        function startTracking() {
+            console.log("Bắt đầu theo dõi vị trí và nhịp tim...");
+            
+            const geoOptions = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            };
+
+            watchId = navigator.geolocation.watchPosition(updatePosition, handleGeoError, geoOptions);
+
+            heartRateIntervalId = setInterval(() => {
+                const randomHeartRate = Math.floor(Math.random() * (160 - 80 + 1)) + 80;
+                heartRateDisplay.textContent = randomHeartRate;
+            }, 2000);
+        }
+
+        function stopTracking() {
+            console.log("Dừng theo dõi vị trí và nhịp tim.");
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            if (heartRateIntervalId) {
+                clearInterval(heartRateIntervalId);
+                heartRateIntervalId = null;
+            }
+        }
+
+        function updatePosition(position) {
+            const { latitude, longitude } = position.coords;
+            const latLng = [latitude, longitude];
+
+            console.log("Vị trí mới:", latLng);
+            statusMessage.textContent = "Đang theo dõi...";
+            
+            // Cập nhật UI
+            coordsDisplay.textContent = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+
+            // Cập nhật bản đồ
+            polyline.addLatLng(latLng);
+            if (!marker) {
+                marker = L.marker(latLng, { icon: userMarkerIcon }).addTo(map);
+            } else {
+                marker.setLatLng(latLng);
+            }
+
+            // Chỉ di chuyển bản đồ nếu không bị pause
+            if (!isPaused) {
+                map.panTo(latLng);
+            }
+        }
+
+        function handleGeoError(error) {
+            console.error("Lỗi Geolocation:", error);
+            statusMessage.textContent = `Lỗi: ${error.message}`;
+        }
+
+        // --- PHẦN 5: HÀM ĐIỀU KHIỂN NÚT BẤM ---
         function handlePlayPause() {
-            if (!isTracking) {
+            if (!isTracking) { // Trường hợp bắt đầu mới
                 isTracking = true;
                 isPaused = false;
-                console.log("Bắt đầu theo dõi...");
                 
+                // Cập nhật UI
                 statusMessage.textContent = "Đang tìm kiếm vị trí của bạn...";
                 playIcon.classList.add('hidden');
                 pauseIcon.classList.remove('hidden');
@@ -159,44 +230,43 @@
                 recenterButton.classList.remove('hidden');
                 fitBoundsButton.classList.remove('hidden');
                 
+                // Reset dữ liệu cũ
                 polyline.setLatLngs([]);
-                if (marker) marker.remove(); marker = null;
+                if (marker) { marker.remove(); marker = null; }
+                coordsDisplay.textContent = "--.----, --.----";
+                heartRateDisplay.textContent = "--";
 
-                // TODO: Bắt đầu theo dõi vị trí (Geolocation API)
-                // TODO: Bắt đầu mô phỏng nhịp tim (setInterval)
+                startTracking();
                 
-            } else {
+            } else { // Trường hợp đang chạy, giờ bấm Pause/Resume
                 isPaused = !isPaused;
                 if (isPaused) {
-                    console.log("Đã tạm dừng.");
                     statusMessage.textContent = "Đã tạm dừng";
                     playIcon.classList.remove('hidden');
                     pauseIcon.classList.add('hidden');
-                    // TODO: Dừng theo dõi vị trí và nhịp tim
+                    stopTracking(); // Tạm dừng lấy dữ liệu
                 } else {
-                    console.log("Tiếp tục theo dõi.");
                     statusMessage.textContent = "Đang theo dõi...";
                     playIcon.classList.add('hidden');
                     pauseIcon.classList.remove('hidden');
-                    // TODO: Bắt đầu lại việc theo dõi vị trí và nhịp tim
+                    startTracking(); // Bắt đầu lại
                 }
             }
         }
 
         function handleStop() {
             if (!isTracking) return;
+            stopTracking(); // Dừng hẳn việc lấy dữ liệu
+            
             isTracking = false;
             isPaused = false;
 
-            console.log("Kết thúc theo dõi.");
             statusMessage.textContent = "Buổi tập đã kết thúc. Tốt lắm!";
             
+            // Reset UI
             playIcon.classList.remove('hidden');
             pauseIcon.classList.add('hidden');
             stopButton.classList.add('hidden');
-            
-            // TODO: Dừng hẳn việc theo dõi
-            // TODO: Tính toán tổng kết và lưu vào Firebase
         }
 
         function handleRecenterMap() {
@@ -208,7 +278,7 @@
             if (bounds.isValid()) map.flyToBounds(bounds, { padding: [50, 50] });
         }
         
-        // --- PHẦN 5: GẮN SỰ KIỆN ---
+        // --- PHẦN 6: GẮN SỰ KIỆN ---
         window.addEventListener('DOMContentLoaded', initMap);
         playPauseButton.addEventListener('click', handlePlayPause);
         stopButton.addEventListener('click', handleStop);
