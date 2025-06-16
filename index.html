@@ -266,8 +266,17 @@
                     const userStatus = userData.status || 'Đang di chuyển';
                     const popupContent = `${userData.name}<br><b>${userStatus}</b>`;
                     const icon = createStatusIcon(userData.photo, userStatus);
+                    
                     const newMarker = L.marker(userLatLng, { icon: icon });
                     newMarker.bindPopup(popupContent);
+
+                    // THÊM SỰ KIỆN CLICK CHO MARKER
+                    newMarker.on('click', (e) => {
+                        // Ngăn chặn sự kiện click của cluster group
+                        e.originalEvent.preventDefault();
+                        map.flyTo(userLatLng, 18);
+                    });
+
                     newMarkersList.push(newMarker);
                 });
                 markers.addLayers(newMarkersList);
@@ -311,6 +320,7 @@
         function openSheet() {
             bottomSheetContainer.classList.remove('hidden');
             requestAnimationFrame(() => {
+                sheetBackdrop.classList.remove('opacity-0');
                 sheetBackdrop.classList.add('opacity-100');
                 memberSheet.classList.remove('translate-y-full');
             });
@@ -318,6 +328,7 @@
 
         function closeSheet() {
             sheetBackdrop.classList.remove('opacity-100');
+            sheetBackdrop.classList.add('opacity-0');
             memberSheet.classList.add('translate-y-full');
             setTimeout(() => bottomSheetContainer.classList.add('hidden'), 300);
         }
@@ -390,3 +401,5 @@
     </script>
 </body>
 </html>
+```
+Tôi đã thêm một sự kiện `click` vào mỗi marker của thành viên trên bản đồ. Giờ đây, khi bạn nhấn vào ảnh đại diện của một người bất kỳ trực tiếp trên bản đồ, ứng dụng sẽ tự động bay đến và phóng to vào vị trí của họ, tương tự như khi bạn chọn từ trong danh sá
