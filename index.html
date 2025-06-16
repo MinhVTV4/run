@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theo Dõi Sức Khỏe</title>
+    
+    <!-- Tích hợp Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tích hợp LeafletJS cho bản đồ -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- CSS tùy chỉnh bổ sung -->
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            background-color: #f3f4f6;
+        }
+        .btn-transition {
+            transition: all 0.3s ease-in-out;
+        }
+        /* Đảm bảo các nút điều khiển của Leaflet không bị che */
+        .leaflet-top, .leaflet-bottom {
+            z-index: 999 !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-slate-800 font-sans flex flex-col h-screen">
+
+    <header class="bg-white shadow-md py-3">
+        <h1 class="text-2xl font-bold text-center text-teal-600">Buổi Tập Luyện</h1>
+    </header>
+
+    <main class="flex-grow relative">
+        <div id="map">
+            <!-- Bản đồ sẽ được khởi tạo ở đây -->
+        </div>
+
+        <!-- CÁC NÚT ĐIỀU KHIỂN BẢN ĐỒ -->
+        <div class="absolute top-3 right-3 z-[1000] flex flex-col gap-2">
+            <!-- Nút tìm lại vị trí -->
+            <button id="recenterButton" title="Tìm lại vị trí" class="hidden btn-transition bg-white w-10 h-10 rounded-full shadow-md flex items-center justify-center hover:bg-gray-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v8m-4-4h8" />
+                </svg>
+            </button>
+            <!-- Nút xem toàn tuyến -->
+            <button id="fitBoundsButton" title="Xem toàn tuyến" class="hidden btn-transition bg-white w-10 h-10 rounded-full shadow-md flex items-center justify-center hover:bg-gray-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4h4m12 4V4h-4M4 16v4h4m12-4v4h-4" />
+                </svg>
+            </button>
+        </div>
+    </main>
+
+    <footer class="bg-white/80 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] rounded-t-2xl p-4">
+        <!-- Lưới hiển thị các chỉ số -->
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="bg-gray-200 p-3 rounded-lg flex items-center space-x-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                <div>
+                    <div class="text-xs text-gray-500">Vị trí</div>
+                    <div id="coords" class="text-sm font-semibold text-slate-700">--.----, --.----</div>
+                </div>
+            </div>
+            <div class="bg-gray-200 p-3 rounded-lg flex items-center space-x-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                <div>
+                    <div class="text-xs text-gray-500">Nhịp tim</div>
+                    <div><span id="heartRate" class="text-lg font-bold text-slate-800">--</span> bpm</div>
+                </div>
+            </div>
+            <div class="bg-gray-200 p-3 rounded-lg">
+                <div class="text-xs text-gray-500">Tốc độ trung bình</div>
+                <div><span id="averageSpeed" class="text-lg font-bold text-slate-800">--</span> km/h</div>
+            </div>
+            <div class="bg-gray-200 p-3 rounded-lg">
+                <div class="text-xs text-gray-500">Năng lượng</div>
+                <div><span id="calorieBurned" class="text-lg font-bold text-slate-800">--</span> kcal</div>
+            </div>
+        </div>
+        
+        <div id="healthStatusMessage" class="text-center text-gray-600 text-sm mb-3 h-5">
+            Nhấn 'Bắt đầu' để theo dõi
+        </div>
+        
+        <div class="flex justify-center gap-4">
+            <button id="startButton" class="btn-transition bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-10 rounded-full shadow-lg transform hover:scale-105">
+                Bắt đầu
+            </button>
+            <button id="endButton" class="btn-transition hidden bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-10 rounded-full shadow-lg transform hover:scale-105">
+                Kết thúc
+            </button>
+        </div>
+    </footer>
+
+    <script type="module">
+        // --- PHẦN 1: LẤY CÁC THAM CHIẾU ĐẾN PHẦN TỬ HTML ---
+        const startButton = document.getElementById('startButton');
+        const endButton = document.getElementById('endButton');
+        const recenterButton = document.getElementById('recenterButton'); // Nút mới
+        const fitBoundsButton = document.getElementById('fitBoundsButton'); // Nút mới
+
+        const coordsDisplay = document.getElementById('coords');
+        const heartRateDisplay = document.getElementById('heartRate');
+        const averageSpeedDisplay = document.getElementById('averageSpeed');
+        const calorieBurnedDisplay = document.getElementById('calorieBurned');
+        const statusMessage = document.getElementById('healthStatusMessage');
+        
+        // --- PHẦN 2: KHAI BÁO BIẾN TOÀN CỤC ---
+        let map;
+        let marker;
+        let polyline;
+        let isTracking = false;
+
+        // --- PHẦN 3: KHỞI TẠO BẢN ĐỒ ---
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([21.0285, 105.8542], 15);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+
+            polyline = L.polyline([], { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(map);
+            
+            console.log("Bản đồ đã được khởi tạo với theme CartoDB Light.");
+        }
+
+        // --- PHẦN 4: CÁC HÀM XỬ LÝ SỰ KIỆN ---
+        function handleStartTracking() {
+            if (isTracking) return;
+            isTracking = true;
+
+            console.log("Bắt đầu theo dõi...");
+            statusMessage.textContent = "Đang tìm kiếm vị trí của bạn...";
+            
+            // Cập nhật giao diện các nút
+            startButton.classList.add('hidden');
+            endButton.classList.remove('hidden');
+            recenterButton.classList.remove('hidden');
+            fitBoundsButton.classList.remove('hidden');
+            
+            // Xóa dữ liệu của buổi tập trước
+            polyline.setLatLngs([]);
+            if (marker) {
+                marker.remove();
+                marker = null;
+            }
+
+            // TODO: Bắt đầu theo dõi vị trí (Geolocation API)
+            // TODO: Bắt đầu mô phỏng nhịp tim (setInterval)
+            // TODO: Kết nối và đẩy dữ liệu lên Firebase
+        }
+
+        function handleEndTracking() {
+            if (!isTracking) return;
+            isTracking = false;
+
+            console.log("Kết thúc theo dõi.");
+            statusMessage.textContent = "Buổi tập đã kết thúc. Tốt lắm!";
+            
+            // Cập nhật giao diện các nút
+            startButton.classList.remove('hidden');
+            endButton.classList.add('hidden');
+            // Giữ lại các nút điều khiển bản đồ để người dùng xem lại tuyến đường
+            
+            // TODO: Dừng theo dõi vị trí
+            // TODO: Dừng mô phỏng nhịp tim
+            // TODO: Tính toán tổng kết và lưu vào Firebase
+        }
+
+        function handleRecenterMap() {
+            if (marker) {
+                // Bay mượt mà về vị trí của marker với mức zoom 17
+                map.flyTo(marker.getLatLng(), 17);
+            } else {
+                console.log("Chưa có vị trí để quay về.");
+            }
+        }
+
+        function handleFitBounds() {
+            const bounds = polyline.getBounds();
+            // Kiểm tra xem polyline có dữ liệu không
+            if (bounds.isValid()) {
+                // Phóng to/thu nhỏ để vừa với toàn bộ tuyến đường
+                // Thêm padding để tuyến đường không bị sát viền
+                map.flyToBounds(bounds, { padding: [50, 50] });
+            } else {
+                console.log("Chưa có tuyến đường để hiển thị.");
+            }
+        }
+        
+        // --- PHẦN 5: GẮN CÁC BỘ LẮNG NGHE SỰ KIỆN ---
+        window.addEventListener('DOMContentLoaded', initMap);
+        startButton.addEventListener('click', handleStartTracking);
+        endButton.addEventListener('click', handleEndTracking);
+        recenterButton.addEventListener('click', handleRecenterMap); // Gắn sự kiện cho nút mới
+        fitBoundsButton.addEventListener('click', handleFitBounds);   // Gắn sự kiện cho nút mới
+
+    </script>
+</body>
+</html>
