@@ -14,9 +14,16 @@
     
     <!-- CSS tùy chỉnh bổ sung -->
     <style>
+        /* GIẢI PHÁP CHO CHIỀU CAO 100vh TRÊN DI ĐỘNG */
+        :root {
+            --app-height: 100%;
+        }
         html, body {
-            height: 100%;
+            padding: 0;
+            margin: 0;
             overflow: hidden;
+            height: 100vh; /* Fallback */
+            height: var(--app-height);
         }
         #map {
             height: 100%;
@@ -29,7 +36,6 @@
         .leaflet-top, .leaflet-bottom {
             z-index: 999 !important;
         }
-        /* Style cho nút play/pause không bị che */
         .fab-container {
             position: absolute;
             bottom: 20px;
@@ -39,7 +45,6 @@
             align-items: center;
             gap: 12px;
         }
-        /* Tạo icon cho marker */
         .user-marker-icon {
             background-color: #2563eb;
             border: 3px solid white;
@@ -48,10 +53,10 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 text-slate-800 font-sans flex flex-col h-screen">
+<body class="bg-gray-100 text-slate-800 font-sans flex flex-col">
 
-    <header class="bg-white shadow-md py-3">
-        <h1 class="text-2xl font-bold text-center text-teal-600">Buổi Tập Luyện</h1>
+    <header class="bg-white shadow-md py-3 flex-shrink-0">
+        <h1 class="text-xl font-bold text-center text-teal-600">Buổi Tập Luyện</h1>
     </header>
 
     <main class="flex-grow relative">
@@ -81,42 +86,44 @@
         </div>
     </main>
 
-    <footer class="bg-white/80 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] rounded-t-2xl p-4">
-        <div id="healthStatusMessage" class="text-center text-gray-600 text-sm mb-3 h-5">
+    <footer class="bg-white/80 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] rounded-t-2xl p-2 flex-shrink-0">
+        <div id="healthStatusMessage" class="text-center text-gray-600 text-xs mb-2 h-4">
             Nhấn Play để bắt đầu
         </div>
-        <div class="grid grid-cols-2 gap-4">
-            <!-- Tọa độ -->
-            <div class="bg-gray-200 p-3 rounded-lg flex items-center space-x-3">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                <div>
-                    <div class="text-xs text-gray-500">Vị trí</div>
-                    <div id="coords" class="text-sm font-semibold text-slate-700">--.----, --.----</div>
-                </div>
+        <!-- TỐI ƯU BỐ CỤC: 4 CỘT TRÊN 1 HÀNG -->
+        <div class="grid grid-cols-4 gap-2 text-center">
+            <!-- Vị trí -->
+            <div class="bg-gray-200 p-2 rounded-lg">
+                <div class="text-xs text-gray-500">Vị trí</div>
+                <div id="coords" class="text-sm font-semibold text-slate-700">--,--</div>
             </div>
             <!-- Nhịp tim -->
-            <div class="bg-gray-200 p-3 rounded-lg flex items-center space-x-3">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-                <div>
-                    <div class="text-xs text-gray-500">Nhịp tim</div>
-                    <div><span id="heartRate" class="text-lg font-bold text-slate-800">--</span> bpm</div>
-                </div>
+            <div class="bg-gray-200 p-2 rounded-lg">
+                <div class="text-xs text-gray-500">Nhịp tim</div>
+                <div class="text-sm font-semibold text-slate-800"><span id="heartRate">--</span> bpm</div>
             </div>
             <!-- Tốc độ trung bình -->
-            <div class="bg-gray-200 p-3 rounded-lg">
-                <div class="text-xs text-gray-500">Tốc độ trung bình</div>
-                <div><span id="averageSpeed" class="text-lg font-bold text-slate-800">--</span> km/h</div>
+            <div class="bg-gray-200 p-2 rounded-lg">
+                <div class="text-xs text-gray-500">Tốc độ</div>
+                <div class="text-sm font-semibold text-slate-800"><span id="averageSpeed">0.0</span> km/h</div>
             </div>
-
-            <!-- Calo đã đốt -->
-            <div class="bg-gray-200 p-3 rounded-lg">
+            <!-- Năng lượng -->
+            <div class="bg-gray-200 p-2 rounded-lg">
                 <div class="text-xs text-gray-500">Năng lượng</div>
-                <div><span id="calorieBurned" class="text-lg font-bold text-slate-800">--</span> kcal</div>
+                <div class="text-sm font-semibold text-slate-800"><span id="calorieBurned">0</span> kcal</div>
             </div>
         </div>
     </footer>
 
     <script type="module">
+        // --- PHẦN 0: TỐI ƯU CHIỀU CAO CHO DI ĐỘNG ---
+        const setAppHeight = () => {
+            const doc = document.documentElement;
+            doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+        };
+        window.addEventListener('resize', setAppHeight);
+        setAppHeight();
+
         // --- PHẦN 1: THAM CHIẾU HTML ---
         const playPauseButton = document.getElementById('playPauseButton');
         const stopButton = document.getElementById('stopButton');
@@ -134,14 +141,17 @@
         let map;
         let marker;
         let polyline;
-        let userMarkerIcon = L.divIcon({
-            className: 'user-marker-icon',
-            iconSize: [18, 18]
-        });
+        let userMarkerIcon = L.divIcon({ className: 'user-marker-icon', iconSize: [18, 18] });
         let isTracking = false;
         let isPaused = false;
-        let watchId = null; // ID để theo dõi vị trí
-        let heartRateIntervalId = null; // ID để mô phỏng nhịp tim
+        let watchId = null;
+        let heartRateIntervalId = null;
+
+        // Biến cho việc tính toán
+        let totalDistance = 0; // mét
+        let startTime = 0;
+        let lastPosition = null;
+        const USER_WEIGHT_KG = 65; // Giả định cân nặng người dùng
 
         // --- PHẦN 3: KHỞI TẠO ---
         function initMap() {
@@ -157,16 +167,19 @@
         }
 
         // --- PHẦN 4: HÀM LOGIC CHÍNH ---
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
 
         function startTracking() {
-            console.log("Bắt đầu theo dõi vị trí và nhịp tim...");
-            
-            const geoOptions = {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0,
-            };
-
+            const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
             watchId = navigator.geolocation.watchPosition(updatePosition, handleGeoError, geoOptions);
 
             heartRateIntervalId = setInterval(() => {
@@ -176,94 +189,91 @@
         }
 
         function stopTracking() {
-            console.log("Dừng theo dõi vị trí và nhịp tim.");
-            if (watchId) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-            }
-            if (heartRateIntervalId) {
-                clearInterval(heartRateIntervalId);
-                heartRateIntervalId = null;
-            }
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (heartRateIntervalId) clearInterval(heartRateIntervalId);
+            watchId = null;
+            heartRateIntervalId = null;
         }
 
         function updatePosition(position) {
             const { latitude, longitude } = position.coords;
             const latLng = [latitude, longitude];
 
-            console.log("Vị trí mới:", latLng);
             statusMessage.textContent = "Đang theo dõi...";
-            
-            // Cập nhật UI
-            coordsDisplay.textContent = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+            coordsDisplay.textContent = `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
 
-            // Cập nhật bản đồ
             polyline.addLatLng(latLng);
             if (!marker) {
                 marker = L.marker(latLng, { icon: userMarkerIcon }).addTo(map);
             } else {
                 marker.setLatLng(latLng);
             }
+            if (!isPaused) map.panTo(latLng);
 
-            // Chỉ di chuyển bản đồ nếu không bị pause
-            if (!isPaused) {
-                map.panTo(latLng);
+            if (lastPosition) {
+                const distanceIncrement = calculateDistance(lastPosition.latitude, lastPosition.longitude, latitude, longitude);
+                totalDistance += distanceIncrement;
+                const elapsedTimeSeconds = (Date.now() - startTime) / 1000;
+                if (elapsedTimeSeconds > 0) {
+                    const avgSpeedKmh = (totalDistance / elapsedTimeSeconds) * 3.6;
+                    averageSpeedDisplay.textContent = avgSpeedKmh.toFixed(1);
+                }
+                const calories = (totalDistance / 1000) * USER_WEIGHT_KG;
+                calorieBurnedDisplay.textContent = Math.round(calories);
             }
+            lastPosition = { latitude, longitude };
         }
 
         function handleGeoError(error) {
-            console.error("Lỗi Geolocation:", error);
-            statusMessage.textContent = `Lỗi: ${error.message}`;
+            statusMessage.textContent = `Lỗi vị trí: ${error.message}`;
         }
 
         // --- PHẦN 5: HÀM ĐIỀU KHIỂN NÚT BẤM ---
         function handlePlayPause() {
-            if (!isTracking) { // Trường hợp bắt đầu mới
+            if (!isTracking) { 
                 isTracking = true;
                 isPaused = false;
-                
-                // Cập nhật UI
-                statusMessage.textContent = "Đang tìm kiếm vị trí của bạn...";
+                statusMessage.textContent = "Đang tìm vị trí...";
                 playIcon.classList.add('hidden');
                 pauseIcon.classList.remove('hidden');
                 stopButton.classList.remove('hidden');
                 recenterButton.classList.remove('hidden');
                 fitBoundsButton.classList.remove('hidden');
                 
-                // Reset dữ liệu cũ
                 polyline.setLatLngs([]);
                 if (marker) { marker.remove(); marker = null; }
-                coordsDisplay.textContent = "--.----, --.----";
-                heartRateDisplay.textContent = "--";
-
-                startTracking();
+                totalDistance = 0;
+                lastPosition = null;
+                startTime = Date.now();
                 
-            } else { // Trường hợp đang chạy, giờ bấm Pause/Resume
+                coordsDisplay.textContent = "--,--";
+                heartRateDisplay.textContent = "--";
+                averageSpeedDisplay.textContent = "0.0";
+                calorieBurnedDisplay.textContent = "0";
+                startTracking();
+            } else { 
                 isPaused = !isPaused;
                 if (isPaused) {
                     statusMessage.textContent = "Đã tạm dừng";
                     playIcon.classList.remove('hidden');
                     pauseIcon.classList.add('hidden');
-                    stopTracking(); // Tạm dừng lấy dữ liệu
+                    stopTracking();
                 } else {
                     statusMessage.textContent = "Đang theo dõi...";
                     playIcon.classList.add('hidden');
                     pauseIcon.classList.remove('hidden');
-                    startTracking(); // Bắt đầu lại
+                    startTracking();
                 }
             }
         }
 
         function handleStop() {
             if (!isTracking) return;
-            stopTracking(); // Dừng hẳn việc lấy dữ liệu
-            
+            stopTracking(); 
             isTracking = false;
             isPaused = false;
-
-            statusMessage.textContent = "Buổi tập đã kết thúc. Tốt lắm!";
-            
-            // Reset UI
+            lastPosition = null;
+            statusMessage.textContent = "Buổi tập đã kết thúc!";
             playIcon.classList.remove('hidden');
             pauseIcon.classList.add('hidden');
             stopButton.classList.add('hidden');
