@@ -31,6 +31,8 @@
         .leaflet-top, .leaflet-bottom { z-index: 999 !important; }
         .fab-container { position: absolute; bottom: 20px; left: 20px; z-index: 1000; display: flex; align-items: center; gap: 12px; }
         .user-marker-icon { background-color: #2563eb; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        #historyModal { z-index: 2000; }
+        #historyList li:hover { background-color: #e5e7eb; }
     </style>
 </head>
 <body class="bg-gray-100 text-slate-800 font-sans">
@@ -52,7 +54,12 @@
                 <img id="userPhoto" class="w-8 h-8 rounded-full" src="" alt="User photo">
                 <span id="userName" class="text-sm font-semibold text-slate-700"></span>
             </div>
-            <button id="logoutButton" class="text-sm text-gray-600 hover:text-red-500 font-semibold">Đăng xuất</button>
+            <div class="flex items-center gap-4">
+                <button id="historyButton" title="Lịch sử" class="btn-transition text-gray-500 hover:text-teal-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                </button>
+                <button id="logoutButton" class="text-sm text-gray-600 hover:text-red-500 font-semibold">Đăng xuất</button>
+            </div>
         </header>
 
         <main class="flex-grow relative">
@@ -77,15 +84,26 @@
             </div>
         </footer>
     </div>
+
+    <!-- MODAL LỊCH SỬ -->
+    <div id="historyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h2 class="text-xl font-bold text-teal-600">Lịch sử tập luyện</h2>
+                <button id="closeHistoryButton" class="text-gray-500 hover:text-red-500 text-3xl font-bold leading-none">&times;</button>
+            </div>
+            <ul id="historyList" class="overflow-y-auto p-2">
+                <li class="text-center p-8 text-gray-500">Chưa có dữ liệu...</li>
+            </ul>
+        </div>
+    </div>
     
     <script type="module">
         // --- PHẦN -1: TÍCH HỢP FIREBASE ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
-        // THÊM CÁC HÀM CỦA REALTIME DATABASE
-        import { getDatabase, ref, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+        import { getDatabase, ref, push, onValue, query, orderByChild, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
-        // !!! QUAN TRỌNG: Thay thế bằng cấu hình Firebase của bạn
         const firebaseConfig = {
             apiKey: "AIzaSyDn-3B1ZNCq9E9XuNoHHHiyIo_Pegy8Ogk",
             authDomain: "ailocal-7501e.firebaseapp.com",
@@ -97,12 +115,12 @@
         };
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        // KHỞI TẠO REALTIME DATABASE
         const db = getDatabase(app);
 
-        // --- PHẦN 0: TỐI ƯU CHIỀU CAO CHO DI ĐỘNG ---
+        // --- PHẦN 0: TỐI ƯU CHIỀU CAO ---
         const setAppHeight = () => { document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`); };
         window.addEventListener('resize', setAppHeight);
+        setAppHeight();
         
         // --- PHẦN 1: THAM CHIẾU HTML ---
         const loginScreen = document.getElementById('loginScreen');
@@ -122,14 +140,19 @@
         const statusMessage = document.getElementById('healthStatusMessage');
         const averageSpeedDisplay = document.getElementById('averageSpeed');
         const calorieBurnedDisplay = document.getElementById('calorieBurned');
-        
+        const historyButton = document.getElementById('historyButton');
+        const historyModal = document.getElementById('historyModal');
+        const closeHistoryButton = document.getElementById('closeHistoryButton');
+        const historyList = document.getElementById('historyList');
+
         // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
         let currentUser = null; 
         let map, marker, polyline;
         let userMarkerIcon = L.divIcon({ className: 'user-marker-icon', iconSize: [18, 18] });
         let isTracking = false, isPaused = false, watchId = null, heartRateIntervalId = null;
         let totalDistance = 0, startTime = 0, lastPosition = null;
-        let currentRoute = []; // Mảng lưu các tọa độ của lộ trình
+        let currentRoute = [];
+        let allSessions = {};
         const USER_WEIGHT_KG = 65;
 
         // --- PHẦN 3: XỬ LÝ AUTHENTICATION ---
@@ -143,6 +166,7 @@
                 userPhoto.src = user.photoURL;
                 setAppHeight(); 
                 if (!map) initMap(); 
+                fetchAndDisplayHistory();
             } else {
                 currentUser = null;
                 loginScreen.classList.remove('hidden');
@@ -163,19 +187,34 @@
             polyline = L.polyline([], { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(map);
         }
 
-        // --- PHẦN 5: LOGIC THEO DÕI ---
-        function calculateDistance(lat1, lon1, lat2, lon2) { /* ... không thay đổi ... */ return 6371e3 * 2 * Math.atan2(Math.sqrt(Math.sin(((lat2-lat1)*Math.PI/180)/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(((lon2-lon1)*Math.PI/180)/2)**2),Math.sqrt(1-(Math.sin(((lat2-lat1)*Math.PI/180)/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(((lon2-lon1)*Math.PI/180)/2)**2)));}
-        function startTracking() { /* ... không thay đổi ... */ watchId = navigator.geolocation.watchPosition(updatePosition, handleGeoError, {enableHighAccuracy:!0,timeout:1e4,maximumAge:0}); heartRateIntervalId=setInterval(()=>{heartRateDisplay.textContent=Math.floor(81*Math.random())+80},2e3); }
-        function stopTracking() { /* ... không thay đổi ... */ if(watchId)navigator.geolocation.clearWatch(watchId);if(heartRateIntervalId)clearInterval(heartRateIntervalId);watchId=heartRateIntervalId=null }
-        
+        // --- PHẦN 5: LOGIC THEO DÕI & TÍNH TOÁN ---
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function startTracking() {
+            const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+            watchId = navigator.geolocation.watchPosition(updatePosition, handleGeoError, geoOptions);
+            heartRateIntervalId = setInterval(() => { heartRateDisplay.textContent = Math.floor(Math.random() * 81) + 80; }, 2000);
+        }
+
+        function stopTracking() {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (heartRateIntervalId) clearInterval(heartRateIntervalId);
+            watchId = heartRateIntervalId = null;
+        }
+
         function updatePosition(position) {
             const { latitude, longitude } = position.coords;
-            const latLng = { lat: latitude, lng: longitude }; // Lưu dưới dạng object
+            const latLng = { lat: latitude, lng: longitude };
             
             statusMessage.textContent = "Đang theo dõi...";
             coordsDisplay.textContent = `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
             
-            // Thêm vào mảng lộ trình và vẽ lên bản đồ
             currentRoute.push(latLng);
             polyline.addLatLng([latitude, longitude]);
 
@@ -193,7 +232,7 @@
         }
         function handleGeoError(error) { statusMessage.textContent = `Lỗi vị trí: ${error.message}`; }
 
-        // --- PHẦN 6: HÀM ĐIỀU KHIỂN NÚT BẤM ---
+        // --- PHẦN 6: HÀM ĐIỀU KHIỂN & LƯU TRỮ ---
         function handlePlayPause() {
             if (!isTracking) { 
                 isTracking = true; isPaused = false;
@@ -215,7 +254,8 @@
                     stopTracking();
                 } else {
                     statusMessage.textContent = "Đang theo dõi...";
-                    playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
+                    playIcon.classList.add('hidden');
+                    pauseIcon.classList.remove('hidden');
                     startTracking();
                 }
             }
@@ -230,7 +270,6 @@
             const finalDuration = Date.now() - startTime;
             const finalCalories = Math.round((finalDistance / 1000) * USER_WEIGHT_KG);
 
-            // Chỉ lưu nếu có di chuyển
             if (finalDistance > 10) { 
                 saveSessionToFirebase(finalDistance, finalDuration, finalCalories);
             } else {
@@ -242,39 +281,107 @@
             stopButton.classList.add('hidden');
         }
 
-        // HÀM MỚI: LƯU DỮ LIỆU LÊN FIREBASE
         function saveSessionToFirebase(distance, duration, calories) {
-            if (!currentUser) {
-                console.error("Không có người dùng, không thể lưu!");
-                return;
-            }
+            if (!currentUser) return;
             statusMessage.textContent = "Đang lưu buổi tập...";
             
             const sessionData = {
                 userId: currentUser.uid,
-                createdAt: serverTimestamp(), // Dùng timestamp của server
-                distance: parseFloat(distance.toFixed(2)), // mét
-                duration: duration, // mili giây
+                createdAt: serverTimestamp(),
+                distance: parseFloat(distance.toFixed(2)),
+                duration: duration,
                 calories: calories,
-                route: currentRoute // Mảng các tọa độ
+                route: currentRoute
             };
             
             const sessionsRef = ref(db, 'sessions/' + currentUser.uid);
             push(sessionsRef, sessionData)
-                .then(() => {
-                    statusMessage.textContent = "Đã lưu buổi tập!";
-                    console.log("Lưu phiên thành công!");
-                })
-                .catch((error) => {
-                    statusMessage.textContent = "Lỗi khi lưu!";
-                    console.error("Lỗi khi lưu phiên:", error);
-                });
+                .then(() => { statusMessage.textContent = "Đã lưu buổi tập!"; })
+                .catch((error) => { statusMessage.textContent = "Lỗi khi lưu!"; console.error("Lỗi khi lưu phiên:", error); });
+        }
+        
+        // --- PHẦN 7: TÍNH NĂNG LỊCH SỬ & ĐIỀU KHIỂN BẢN ĐỒ ---
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
 
-        function handleRecenterMap() { if (marker) map.flyTo(marker.getLatLng(), 17); }
-        function handleFitBounds() { if (polyline.getBounds().isValid()) map.flyToBounds(polyline.getBounds(), { padding: [50, 50] }); }
+        function fetchAndDisplayHistory() {
+            if (!currentUser) return;
+            const sessionsRef = ref(db, 'sessions/' + currentUser.uid);
+            const sessionsQuery = query(sessionsRef, orderByChild('createdAt'));
+
+            onValue(sessionsQuery, (snapshot) => {
+                historyList.innerHTML = '';
+                allSessions = {}; 
+                if (!snapshot.exists()) {
+                    historyList.innerHTML = '<li class="text-center p-8 text-gray-500">Chưa có dữ liệu...</li>';
+                    return;
+                }
+                
+                const sessionsArray = [];
+                snapshot.forEach(childSnapshot => {
+                    const sessionKey = childSnapshot.key;
+                    const sessionData = childSnapshot.val();
+                    allSessions[sessionKey] = sessionData;
+                    sessionsArray.push({ key: sessionKey, ...sessionData });
+                });
+
+                sessionsArray.reverse();
+
+                sessionsArray.forEach(session => {
+                    const li = document.createElement('li');
+                    li.className = 'p-3 border-b cursor-pointer';
+                    li.dataset.sessionId = session.key;
+                    li.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div class="font-bold text-slate-700">${new Date(session.createdAt).toLocaleDateString('vi-VN')}</div>
+                            <div class="text-sm text-gray-500">${new Date(session.createdAt).toLocaleTimeString('vi-VN')}</div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 mt-2 text-sm">
+                            <div><span class="font-bold">${(session.distance / 1000).toFixed(2)}</span> km</div>
+                            <div><span class="font-bold">${formatDuration(session.duration)}</span></div>
+                            <div><span class="font-bold">${session.calories}</span> kcal</div>
+                        </div>
+                    `;
+                    historyList.appendChild(li);
+                });
+            });
+        }
         
-        // --- PHẦN 7: GẮN SỰ KIỆN ---
+        function handleShowHistoryRoute(sessionId) {
+            const session = allSessions[sessionId];
+            if (!session || !session.route) return;
+
+            polyline.setLatLngs([]);
+            if (marker) { marker.remove(); marker = null; }
+            
+            const routeLatLngs = session.route.map(p => [p.lat, p.lng]);
+            polyline.setLatLngs(routeLatLngs);
+            
+            if (polyline.getBounds().isValid()) {
+                map.flyToBounds(polyline.getBounds(), { padding: [50, 50] });
+            }
+            
+            historyModal.classList.add('hidden');
+        }
+
+        function handleRecenterMap() {
+            if (marker) {
+                map.flyTo(marker.getLatLng(), 17);
+            }
+        }
+
+        function handleFitBounds() {
+            const bounds = polyline.getBounds();
+            if (bounds.isValid()) {
+                map.flyToBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        // --- PHẦN 8: GẮN SỰ KIỆN ---
         const handleSignIn = () => { signInWithPopup(auth, new GoogleAuthProvider()).catch(e => console.error("Lỗi đăng nhập:", e)); };
         const handleSignOut = () => { signOut(auth).catch(e => console.error("Lỗi đăng xuất:", e)); };
 
@@ -284,7 +391,17 @@
         stopButton.addEventListener('click', handleStop);
         recenterButton.addEventListener('click', handleRecenterMap);
         fitBoundsButton.addEventListener('click', handleFitBounds);
+        historyButton.addEventListener('click', () => historyModal.classList.remove('hidden'));
+        closeHistoryButton.addEventListener('click', () => historyModal.classList.add('hidden'));
+        historyList.addEventListener('click', (e) => {
+            const listItem = e.target.closest('li[data-session-id]');
+            if (listItem) {
+                handleShowHistoryRoute(listItem.dataset.sessionId);
+            }
+        });
 
     </script>
 </body>
 </html>
+```
+Tôi đã thực hiện một vài thay đổi. Tôi đã thêm lại các hàm `handleRecenterMap` và `handleFitBounds` bị thiếu để khắc phục l
