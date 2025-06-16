@@ -26,8 +26,8 @@
             font-family: Inter, sans-serif;
         }
         #map { height: 100%; width: 100%; background-color: #f3f4f6; }
-        .leaflet-popup-content-wrapper { border-radius: 12px; padding: 1px; }
-        .leaflet-popup-content { margin: 0 !important; width: auto !important;}
+        .leaflet-popup-content-wrapper { border-radius: 8px; }
+        .leaflet-popup-content { margin: 10px !important; font-size: 14px; font-weight: bold; line-height: 1.4; }
         .map-control-button {
             width: 40px; height: 40px; background-color: white; border-radius: 9999px;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
@@ -88,8 +88,7 @@
                     Bắt đầu chia sẻ vị trí
                 </button>
                 <select id="statusSelector" class="hidden bg-gray-200 border border-gray-300 text-gray-900 font-semibold text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-3">
-                  <option disabled selected value="">Chọn trạng thái</option>
-                  <option>Đang di chuyển</option>
+                  <option selected>Đang di chuyển</option>
                   <option>Dừng nghỉ</option>
                   <option>Gặp sự cố</option>
                   <option>Đến nơi</option>
@@ -176,18 +175,23 @@
 
         // --- PHẦN 3: LOGIC KHỞI TẠO & ĐIỀU HƯỚNG ---
         
+        // Hàm chính điều khiển giao diện dựa trên trạng thái đăng nhập và URL
         onAuthStateChanged(auth, user => {
             currentUser = user;
             const params = new URLSearchParams(window.location.search);
             currentRoomId = params.get('room');
 
             if (currentRoomId) {
+                // Nếu có room ID trong URL
                 if (currentUser) {
+                    // Đã đăng nhập -> Vào phòng
                     showAppView();
                 } else {
+                    // Chưa đăng nhập -> Hiện màn hình đăng nhập để vào phòng
                     showLoginToJoinView();
                 }
             } else {
+                // Nếu không có room ID -> Ở màn hình chính
                 showHomeView();
             }
         });
@@ -226,11 +230,12 @@
         }
         
         async function showAppView() {
+            // Kiểm tra xem phòng có tồn tại không
             const roomRef = ref(db, `rooms/${currentRoomId}`);
             const snapshot = await get(roomRef);
             if (!snapshot.exists()) {
                 alert("Phòng này không tồn tại hoặc đã bị xóa.");
-                window.location.href = window.location.pathname;
+                window.location.href = window.location.pathname; // Quay về trang chủ
                 return;
             }
             
@@ -250,12 +255,25 @@
 
         // --- PHẦN 4: TẠO PHÒNG VÀ AUTHENTICATION ---
         async function createRoom() {
-            if (!currentUser) { alert("Bạn cần đăng nhập để tạo phòng."); return; }
+            if (!currentUser) {
+                alert("Bạn cần đăng nhập để tạo phòng.");
+                return;
+            }
             const roomName = prompt("Nhập tên cho phòng của bạn:", `Nhóm của ${currentUser.displayName}`);
-            if (!roomName || roomName.trim() === '') { alert("Tên phòng không được để trống."); return; }
+            if (!roomName || roomName.trim() === '') {
+                alert("Tên phòng không được để trống.");
+                return;
+            }
+
             const newRoomId = `room-${Math.random().toString(16).slice(2)}`;
             const newRoomRef = ref(db, `rooms/${newRoomId}`);
-            await set(newRoomRef, { adminId: currentUser.uid, name: roomName, createdAt: serverTimestamp() });
+            
+            await set(newRoomRef, {
+                adminId: currentUser.uid,
+                name: roomName,
+                createdAt: serverTimestamp()
+            });
+
             window.location.href = `${window.location.pathname}?room=${newRoomId}`;
         }
         
@@ -271,29 +289,19 @@
             }).addTo(map);
             markers = L.markerClusterGroup();
             map.addLayer(markers);
-
-            // Gắn sự kiện để xử lý nút bấm trong popup
-            map.on('popupopen', function(e) {
-                const messageButton = e.popup._contentNode.querySelector('.message-from-popup-button');
-                if (messageButton) {
-                    messageButton.onclick = function() {
-                        const userId = messageButton.dataset.userId;
-                        const userName = messageButton.dataset.userName;
-                        openQuickMessageModal(userId, userName);
-                    };
-                }
-            });
         }
 
-        // --- PHẦN 6: LOGIC CHIA SẺ VỊ TRÍ & TRẠNG THÁI ---
+        // --- PHẦN 6: LOGIC CHIA SẺ VỊ TRÍ & TRẠNG THÁI (ĐÃ CẬP NHẬT PATH) ---
         function handleGoLive() {
             isLive = !isLive;
+            const controlsContainer = document.getElementById('controlsContainer');
             if (isLive) {
                 goLiveButton.textContent = "Dừng chia sẻ";
                 goLiveButton.classList.replace('bg-teal-500', 'bg-red-500');
                 goLiveButton.classList.replace('hover:bg-teal-600', 'hover:bg-red-600');
                 statusSelector.classList.remove('hidden');
                 goLiveButton.classList.remove('flex-grow');
+
                 const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
                 watchId = navigator.geolocation.watchPosition(updateMyLocation, handleGeoError, geoOptions);
                 if (isWarningEnabled) {
@@ -317,18 +325,12 @@
             const { latitude, longitude } = position.coords;
             myLocation = [latitude, longitude];
             const myLocationRef = ref(db, `rooms/${currentRoomId}/live_locations/${currentUser.uid}`);
-            
-            const payload = {
-                lat: latitude, lng: longitude, name: currentUser.displayName,
-                photo: currentUser.photoURL, timestamp: serverTimestamp()
-            };
-
             const currentStatus = statusSelector.value;
-            if (currentStatus) { // Chỉ thêm trạng thái nếu người dùng đã chọn
-                payload.status = currentStatus;
-            }
-            
-            set(myLocationRef, payload);
+            set(myLocationRef, {
+                lat: latitude, lng: longitude, name: currentUser.displayName,
+                photo: currentUser.photoURL, status: currentStatus,
+                timestamp: serverTimestamp()
+            });
             onDisconnect(myLocationRef).remove();
         }
 
@@ -340,8 +342,7 @@
         }
 
         function createStatusIcon(photoUrl, status) {
-            let borderColorClass = 'border-gray-400'; // Mặc định cho người chưa chọn trạng thái
-            if (status === 'Đang di chuyển') borderColorClass = 'border-blue-500';
+            let borderColorClass = 'border-blue-500';
             if (status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
             if (status === 'Đến nơi') borderColorClass = 'border-green-500';
             if (status === 'Gặp sự cố') borderColorClass = 'border-red-600';
@@ -358,25 +359,17 @@
             onValue(locationsRef, (snapshot) => {
                 if (!map) return;
                 allLiveUsers = snapshot.val() || {};
+                const activeUserIds = Object.keys(allLiveUsers);
                 markers.clearLayers();
                 let newMarkersList = [];
-                Object.keys(allLiveUsers).forEach(userId => {
+                activeUserIds.forEach(userId => {
                     const userData = allLiveUsers[userId];
                     const userLatLng = [userData.lat, userData.lng];
-                    const userStatus = userData.status;
+                    const userStatus = userData.status || 'Đang di chuyển';
                     const icon = createStatusIcon(userData.photo, userStatus);
                     const newMarker = L.marker(userLatLng, { icon: icon });
-                    
-                    const popupContent = `
-                        <div class="p-2 text-center w-40">
-                            <img src="${userData.photo}" class="w-14 h-14 rounded-full mx-auto mb-2 border-2 border-white shadow-lg">
-                            <div class="font-bold text-slate-800 text-base">${userData.name}</div>
-                            <div class="text-sm text-gray-600 mt-1">${userStatus || 'Chưa chọn trạng thái'}</div>
-                            ${ (userId !== currentUser.uid) ? `<button class="message-from-popup-button mt-3 bg-teal-500 text-white text-xs font-bold py-1.5 px-4 rounded-full hover:bg-teal-600" data-user-id="${userId}" data-user-name="${userData.name}">Gửi tin nhắn</button>` : '' }
-                        </div>
-                    `;
-                    newMarker.bindPopup(popupContent);
-
+                    newMarker.bindPopup(`<b>${userData.name}</b><br>${userStatus}`);
+                    newMarker.on('click', () => map.flyTo(userLatLng, 18) );
                     newMarkersList.push(newMarker);
                 });
                 markers.addLayers(newMarkersList);
@@ -384,13 +377,38 @@
             });
         }
         
-        function handleGeoError(error) { console.error(error); alert(`Lỗi vị trí: ${error.message}`); if (isLive) handleGoLive(); }
+        function handleGeoError(error) {
+            console.error(error);
+            alert(`Lỗi vị trí: ${error.message}`);
+            if (isLive) handleGoLive();
+        }
 
         // --- PHẦN 7: HÀM ĐIỀU KHIỂN & GIAO DIỆN PHỤ ---
-        function handleRecenter() { if (myLocation && map) map.flyTo(myLocation, 16); else alert("Chưa có vị trí của bạn để định vị."); }
-        function handleFitToAll() { if (map && markers.getBounds().isValid()) { map.flyToBounds(markers.getBounds().pad(0.2)); } else { alert("Không có ai khác đang chia sẻ vị trí."); } }
+        function handleRecenter() {
+            if (myLocation && map) map.flyTo(myLocation, 16);
+            else alert("Chưa có vị trí của bạn để định vị.");
+        }
 
-        async function handleWakeLock() { if ('wakeLock' in navigator) { try { if (wakeLock) { await wakeLock.release(); wakeLock = null; wakeLockButton.classList.remove('active'); } else { wakeLock = await navigator.wakeLock.request('screen'); wakeLockButton.classList.add('active'); wakeLock.addEventListener('release', () => { wakeLock = null; wakeLockButton.classList.remove('active'); }); } } catch (err) { console.error(`${err.name}, ${err.message}`); alert('Không thể kích hoạt chức năng giữ màn hình sáng.'); } } else { alert('Trình duyệt của bạn không hỗ trợ chức năng này.'); } }
+        function handleFitToAll() {
+            if (map && markers.getBounds().isValid()) {
+                map.flyToBounds(markers.getBounds().pad(0.2));
+            } else {
+                alert("Không có ai khác đang chia sẻ vị trí.");
+            }
+        }
+
+        async function handleWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    if (wakeLock) {
+                        await wakeLock.release(); wakeLock = null; wakeLockButton.classList.remove('active');
+                    } else {
+                        wakeLock = await navigator.wakeLock.request('screen'); wakeLockButton.classList.add('active');
+                        wakeLock.addEventListener('release', () => { wakeLock = null; wakeLockButton.classList.remove('active'); });
+                    }
+                } catch (err) { console.error(`${err.name}, ${err.message}`); alert('Không thể kích hoạt chức năng giữ màn hình sáng.'); }
+            } else { alert('Trình duyệt của bạn không hỗ trợ chức năng này.'); }
+        }
 
         function openSheet() { bottomSheetContainer.classList.remove('hidden'); requestAnimationFrame(() => { sheetBackdrop.classList.add('opacity-100'); memberSheet.classList.remove('translate-y-full'); }); }
         function closeSheet() { sheetBackdrop.classList.remove('opacity-100'); memberSheet.classList.add('translate-y-full'); setTimeout(() => bottomSheetContainer.classList.add('hidden'), 300); }
@@ -405,9 +423,7 @@
             users.sort((a, b) => a[1].name.localeCompare(b[1].name)).forEach(([userId, userData]) => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg';
-                
-                let borderColorClass = 'border-gray-400'; // Default for no status
-                if (userData.status === 'Đang di chuyển') borderColorClass = 'border-blue-500';
+                let borderColorClass = 'border-blue-500';
                 if (userData.status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
                 if (userData.status === 'Đến nơi') borderColorClass = 'border-green-500';
                 if (userData.status === 'Gặp sự cố') borderColorClass = 'border-red-600';
@@ -422,7 +438,7 @@
                         </div>
                         <div>
                             <div class="font-semibold text-slate-800">${userData.name} ${isCurrentUser ? '(Bạn)' : ''}</div>
-                            <div class="text-sm text-gray-600">${userData.status || 'Chưa chọn trạng thái'}</div>
+                            <div class="text-sm text-gray-600">${userData.status || 'Đang di chuyển'}</div>
                         </div>
                     </div>
                     ${!isCurrentUser ? `<button class="message-button flex-shrink-0 p-2 rounded-full hover:bg-gray-200" data-user-id="${userId}" data-user-name="${userData.name}">
@@ -435,7 +451,7 @@
         
         function handleMemberClick(userId) { const user = allLiveUsers[userId]; if (user && map) { map.flyTo([user.lat, user.lng], 18); closeSheet(); } }
 
-        // --- PHẦN 8: LOGIC TIN NHẮN & CÀI ĐẶT ---
+        // --- PHẦN 8: LOGIC TIN NHẮN & CÀI ĐẶT (ĐÃ CẬP NHẬT PATH) ---
         function openQuickMessageModal(recipientId, recipientName) { messageRecipientName.textContent = `Gửi tin nhắn cho ${recipientName}`; quickMessageModal.dataset.recipientId = recipientId; quickMessageModal.classList.remove('hidden'); requestAnimationFrame(() => { messageModalContent.classList.remove('scale-95', 'opacity-0'); messageModalContent.classList.add('scale-100', 'opacity-100'); }); }
         function closeQuickMessageModal() { messageModalContent.classList.add('scale-95', 'opacity-0'); setTimeout(() => { quickMessageModal.classList.add('hidden'); }, 200); }
 
@@ -444,7 +460,10 @@
             const messageText = e.target.textContent;
             if (!recipientId || !currentUser || !currentRoomId) return;
             const messagesRef = ref(db, `rooms/${currentRoomId}/messages/${recipientId}`);
-            push(messagesRef, { fromId: currentUser.uid, fromName: currentUser.displayName, text: messageText, timestamp: serverTimestamp() }).then(() => { closeQuickMessageModal(); }).catch(err => console.error("Gửi tin nhắn thất bại:", err));
+            push(messagesRef, {
+                fromId: currentUser.uid, fromName: currentUser.displayName,
+                text: messageText, timestamp: serverTimestamp()
+            }).then(() => { closeQuickMessageModal(); }).catch(err => console.error("Gửi tin nhắn thất bại:", err));
         }
         
         function listenForMyMessages() {
@@ -456,7 +475,10 @@
                 const senderData = allLiveUsers[messageData.fromId];
                 if (senderData) {
                     const popupContent = `<b>${messageData.fromName}:</b><br>${messageData.text}`;
-                    const popup = L.popup({ autoClose: false, closeOnClick: true }).setLatLng([senderData.lat, senderData.lng]).setContent(popupContent).openOn(map);
+                    const popup = L.popup({ autoClose: false, closeOnClick: true })
+                                   .setLatLng([senderData.lat, senderData.lng])
+                                   .setContent(popupContent)
+                                   .openOn(map);
                     setTimeout(() => map.closePopup(popup), 20000);
                 }
                 setTimeout(() => remove(ref(db, `rooms/${currentRoomId}/messages/${currentUser.uid}/${messageKey}`)), 3 * 60 * 1000);
@@ -482,7 +504,12 @@
             closeSettingsModal();
         }
 
-        function loadSettings() { const savedEnabled = localStorage.getItem('warningEnabled'); const savedDistance = localStorage.getItem('warningDistance'); isWarningEnabled = savedEnabled === 'true'; if (savedDistance) { warningDistance = parseInt(savedDistance, 10); } }
+        function loadSettings() {
+            const savedEnabled = localStorage.getItem('warningEnabled');
+            const savedDistance = localStorage.getItem('warningDistance');
+            isWarningEnabled = savedEnabled === 'true';
+            if (savedDistance) { warningDistance = parseInt(savedDistance, 10); }
+        }
         
         // --- PHẦN 9: LOGIC CẢNH BÁO KHOẢNG CÁCH ---
         function getDistanceKm(lat1, lon1, lat2, lon2) { const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180; const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return R * c; }
@@ -490,6 +517,7 @@
         function checkMyDistance() { if (!isLive || !myLocation || Object.keys(allLiveUsers).length < 2) { distanceWarningBanner.classList.add('hidden'); return; } const groupCenter = getGroupCenter(allLiveUsers); if (!groupCenter) { distanceWarningBanner.classList.add('hidden'); return; } const distanceInMeters = getDistanceKm(myLocation[0], myLocation[1], groupCenter.lat, groupCenter.lng) * 1000; if (distanceInMeters > warningDistance) { distanceWarningBanner.classList.remove('hidden'); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } else { distanceWarningBanner.classList.add('hidden'); } }
 
         // --- PHẦN 10: GẮN SỰ KIỆN ---
+        // Sử dụng event delegation cho các nút trên màn hình chính
         homeScreen.addEventListener('click', (e) => {
             if (e.target.id === 'createRoomButton') createRoom();
             if (e.target.id === 'homeLoginButton' || e.target.closest('#homeLoginButton')) handleSignIn();
@@ -507,8 +535,13 @@
         inviteButton.addEventListener('click', () => {
             navigator.clipboard.writeText(window.location.href).then(() => {
                 notificationToast.classList.remove('opacity-0', '-translate-y-10');
-                setTimeout(() => { notificationToast.classList.add('opacity-0', '-translate-y-10'); }, 2000);
-            }).catch(err => { console.error('Could not copy text: ', err); alert('Không thể sao chép link.'); });
+                setTimeout(() => {
+                    notificationToast.classList.add('opacity-0', '-translate-y-10');
+                }, 2000);
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+                alert('Không thể sao chép link.');
+            });
         });
         
         memberList.addEventListener('click', (e) => { const messageButton = e.target.closest('.message-button'); if (messageButton) { e.stopPropagation(); openQuickMessageModal(messageButton.dataset.userId, messageButton.dataset.userName); return; } const listItem = e.target.closest('div[data-user-id]'); if (listItem) { handleMemberClick(listItem.dataset.userId); } });
@@ -518,14 +551,8 @@
         statusSelector.addEventListener('change', () => {
             if (isLive && myLocation) {
                  const myLocationRef = ref(db, `rooms/${currentRoomId}/live_locations/${currentUser.uid}`);
-                 set(myLocationRef, {
-                    lat: myLocation[0],
-                    lng: myLocation[1],
-                    name: currentUser.displayName,
-                    photo: currentUser.photoURL,
-                    status: statusSelector.value,
-                    timestamp: serverTimestamp()
-                });
+                 const updateData = { status: statusSelector.value, timestamp: serverTimestamp() };
+                 set(myLocationRef, { ...allLiveUsers[currentUser.uid], ...updateData });
             }
         });
         
