@@ -31,9 +31,10 @@
             border-radius: 8px;
         }
         .leaflet-popup-content {
-            margin: 10px;
+            margin: 10px !important;
             font-size: 14px;
             font-weight: bold;
+            line-height: 1.4;
         }
         /* Nút điều khiển bản đồ */
         .map-control-button {
@@ -53,6 +54,13 @@
         .map-control-button.active {
             background-color: #14b8a6; /* Màu teal khi active */
             color: white;
+        }
+        /* Marker tùy chỉnh sẽ được tạo bằng L.divIcon */
+        .custom-marker-icon img {
+             width: 100%;
+             height: 100%;
+             border-radius: 9999px;
+             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
     </style>
 </head>
@@ -88,9 +96,17 @@
         </main>
         
         <footer class="bg-white/80 backdrop-blur-sm p-3 text-center">
-             <button id="goLiveButton" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all">
-                Bắt đầu chia sẻ vị trí
-            </button>
+             <div id="controlsContainer" class="flex gap-2 items-center">
+                <button id="goLiveButton" class="flex-grow bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all">
+                    Bắt đầu chia sẻ vị trí
+                </button>
+                <select id="statusSelector" class="hidden bg-gray-200 border border-gray-300 text-gray-900 font-semibold text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-3">
+                  <option selected>Đang di chuyển</option>
+                  <option>Dừng nghỉ</option>
+                  <option>Gặp sự cố</option>
+                  <option>Đến nơi</option>
+                </select>
+            </div>
             <div id="statusMessage" class="hidden mt-2 text-sm text-gray-600">
                 Đang chia sẻ vị trí...
             </div>
@@ -117,7 +133,7 @@
         const db = getDatabase(app);
 
         // --- PHẦN 0: CÀI ĐẶT CHUNG ---
-        const EVENT_ID = "marathon_2025"; // Mã định danh cho sự kiện
+        const EVENT_ID = "marathon_2025";
         const setAppHeight = () => { document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`); };
         window.addEventListener('resize', setAppHeight);
         setAppHeight();
@@ -134,6 +150,7 @@
         const recenterButton = document.getElementById('recenterButton');
         const fitToAllButton = document.getElementById('fitToAllButton');
         const wakeLockButton = document.getElementById('wakeLockButton');
+        const statusSelector = document.getElementById('statusSelector');
 
         // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
         let currentUser = null; 
@@ -182,6 +199,7 @@
                 goLiveButton.classList.replace('bg-teal-500', 'bg-red-500');
                 goLiveButton.classList.replace('hover:bg-teal-600', 'hover:bg-red-600');
                 statusMessage.classList.remove('hidden');
+                statusSelector.classList.remove('hidden');
                 const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
                 watchId = navigator.geolocation.watchPosition(updateMyLocation, handleGeoError, geoOptions);
             } else {
@@ -189,6 +207,7 @@
                 goLiveButton.classList.replace('bg-red-500', 'bg-teal-500');
                 goLiveButton.classList.replace('hover:bg-red-600', 'hover:bg-teal-600');
                 statusMessage.classList.add('hidden');
+                statusSelector.classList.add('hidden');
                 if (watchId) navigator.geolocation.clearWatch(watchId);
                 removeMyLocationFromDB();
             }
@@ -197,11 +216,16 @@
         function updateMyLocation(position) {
             if (!currentUser) return;
             const { latitude, longitude } = position.coords;
-            myLocation = [latitude, longitude]; // Lưu vị trí của bản thân
+            myLocation = [latitude, longitude];
             const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
+            
+            const currentStatus = statusSelector.value;
+
             set(myLocationRef, {
                 lat: latitude, lng: longitude, name: currentUser.displayName,
-                photo: currentUser.photoURL, timestamp: serverTimestamp()
+                photo: currentUser.photoURL,
+                status: currentStatus, // Thêm trạng thái
+                timestamp: serverTimestamp()
             });
             onDisconnect(myLocationRef).remove();
         }
@@ -211,6 +235,21 @@
              const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
              set(myLocationRef, null);
              myLocation = null;
+        }
+
+        function createStatusIcon(photoUrl, status) {
+            let borderColorClass = 'border-blue-500'; // Đang di chuyển
+            if (status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
+            if (status === 'Đến nơi') borderColorClass = 'border-green-500';
+            if (status === 'Gặp sự cố') borderColorClass = 'border-red-600';
+
+            return L.divIcon({
+                html: `<img src="${photoUrl}" class="w-full h-full rounded-full border-4 ${borderColorClass}">`,
+                className: 'custom-marker-icon',
+                iconSize: [40, 40],
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -40]
+            });
         }
 
         function listenToLiveLocations() {
@@ -226,15 +265,17 @@
                 Object.keys(locations).forEach(userId => {
                     const userData = locations[userId];
                     const userLatLng = [userData.lat, userData.lng];
+                    const userStatus = userData.status || 'Đang di chuyển';
+                    const popupContent = `${userData.name}<br><b>${userStatus}</b>`;
+                    const icon = createStatusIcon(userData.photo, userStatus);
+
                     if (userMarkers[userId]) {
                         userMarkers[userId].setLatLng(userLatLng);
+                        userMarkers[userId].setIcon(icon);
+                        userMarkers[userId].setPopupContent(popupContent);
                     } else {
-                        const icon = L.icon({
-                            iconUrl: userData.photo, iconSize: [40, 40],
-                            className: 'rounded-full border-2 border-white shadow-md'
-                        });
                         const newMarker = L.marker(userLatLng, { icon: icon }).addTo(map);
-                        newMarker.bindPopup(userData.name);
+                        newMarker.bindPopup(popupContent);
                         userMarkers[userId] = newMarker;
                     }
                 });
@@ -254,13 +295,10 @@
             if (isLive) handleGoLive();
         }
 
-        // --- PHẦN 6: CÁC HÀM ĐIỀU KHIỂN MỚI ---
+        // --- PHẦN 6: CÁC HÀM ĐIỀU KHIỂN ---
         function handleRecenter() {
-            if (myLocation && map) {
-                map.flyTo(myLocation, 16);
-            } else {
-                alert("Chưa có vị trí của bạn để định vị.");
-            }
+            if (myLocation && map) map.flyTo(myLocation, 16);
+            else alert("Chưa có vị trí của bạn để định vị.");
         }
 
         function handleFitToAll() {
@@ -276,11 +314,11 @@
         async function handleWakeLock() {
             if ('wakeLock' in navigator) {
                 try {
-                    if (wakeLock) { // Nếu đang bật, thì tắt đi
+                    if (wakeLock) {
                         await wakeLock.release();
                         wakeLock = null;
                         wakeLockButton.classList.remove('active');
-                    } else { // Nếu đang tắt, thì bật lên
+                    } else {
                         wakeLock = await navigator.wakeLock.request('screen');
                         wakeLockButton.classList.add('active');
                         wakeLock.addEventListener('release', () => {
@@ -307,8 +345,20 @@
         recenterButton.addEventListener('click', handleRecenter);
         fitToAllButton.addEventListener('click', handleFitToAll);
         wakeLockButton.addEventListener('click', handleWakeLock);
+        
+        statusSelector.addEventListener('change', () => {
+            // Khi trạng thái thay đổi, nếu đang live thì cập nhật ngay
+            if (isLive && myLocation) {
+                 const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
+                 set(myLocationRef, {
+                    lat: myLocation[0], lng: myLocation[1], name: currentUser.displayName,
+                    photo: currentUser.photoURL,
+                    status: statusSelector.value, // Lấy giá trị mới
+                    timestamp: serverTimestamp()
+                });
+            }
+        });
 
-        // Ẩn nút wake lock nếu trình duyệt không hỗ trợ
         if (!('wakeLock' in navigator)) {
             wakeLockButton.style.display = 'none';
         }
