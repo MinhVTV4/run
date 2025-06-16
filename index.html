@@ -12,6 +12,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
+    <!-- THƯ VIỆN MỚI: Leaflet MarkerCluster -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.1/dist/leaflet.markercluster.js"></script>
+    
     <!-- CSS tùy chỉnh bổ sung -->
     <style>
         :root { --app-height: 100%; }
@@ -27,41 +32,16 @@
             width: 100%;
             background-color: #f3f4f6;
         }
-        .leaflet-popup-content-wrapper {
-            border-radius: 8px;
-        }
-        .leaflet-popup-content {
-            margin: 10px !important;
-            font-size: 14px;
-            font-weight: bold;
-            line-height: 1.4;
-        }
-        /* Nút điều khiển bản đồ */
+        .leaflet-popup-content-wrapper { border-radius: 8px; }
+        .leaflet-popup-content { margin: 10px !important; font-size: 14px; font-weight: bold; line-height: 1.4; }
         .map-control-button {
-            width: 40px;
-            height: 40px;
-            background-color: white;
-            border-radius: 9999px;
+            width: 40px; height: 40px; background-color: white; border-radius: 9999px;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease-in-out;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s ease-in-out;
         }
-        .map-control-button:hover {
-            background-color: #f3f4f6;
-        }
-        .map-control-button.active {
-            background-color: #14b8a6; /* Màu teal khi active */
-            color: white;
-        }
-        /* Marker tùy chỉnh sẽ được tạo bằng L.divIcon */
-        .custom-marker-icon img {
-             width: 100%;
-             height: 100%;
-             border-radius: 9999px;
-             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
+        .map-control-button:hover { background-color: #f3f4f6; }
+        .map-control-button.active { background-color: #14b8a6; color: white; }
+        .custom-marker-icon img { width: 100%; height: 100%; border-radius: 9999px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body class="bg-gray-100 text-slate-800 font-sans">
@@ -155,6 +135,7 @@
         // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
         let currentUser = null; 
         let map;
+        let markers; // THAY ĐỔI: Sử dụng MarkerClusterGroup
         let isLive = false;
         let watchId = null;
         let userMarkers = {};
@@ -189,6 +170,10 @@
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
                 maxZoom: 20
             }).addTo(map);
+            
+            // THAY ĐỔI: Khởi tạo MarkerClusterGroup
+            markers = L.markerClusterGroup();
+            map.addLayer(markers);
         }
 
         // --- PHẦN 5: LOGIC CHIA SẺ VỊ TRÍ ---
@@ -224,7 +209,7 @@
             set(myLocationRef, {
                 lat: latitude, lng: longitude, name: currentUser.displayName,
                 photo: currentUser.photoURL,
-                status: currentStatus, // Thêm trạng thái
+                status: currentStatus,
                 timestamp: serverTimestamp()
             });
             onDisconnect(myLocationRef).remove();
@@ -238,54 +223,42 @@
         }
 
         function createStatusIcon(photoUrl, status) {
-            let borderColorClass = 'border-blue-500'; // Đang di chuyển
+            let borderColorClass = 'border-blue-500';
             if (status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
             if (status === 'Đến nơi') borderColorClass = 'border-green-500';
             if (status === 'Gặp sự cố') borderColorClass = 'border-red-600';
-
             return L.divIcon({
                 html: `<img src="${photoUrl}" class="w-full h-full rounded-full border-4 ${borderColorClass}">`,
-                className: 'custom-marker-icon',
-                iconSize: [40, 40],
-                iconAnchor: [20, 40],
-                popupAnchor: [0, -40]
+                className: 'custom-marker-icon', iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40]
             });
         }
 
         function listenToLiveLocations() {
             const eventRef = ref(db, `live_locations/${EVENT_ID}`);
             onValue(eventRef, (snapshot) => {
-                const locations = snapshot.val();
-                if (!locations) {
-                    Object.values(userMarkers).forEach(marker => marker.remove());
-                    userMarkers = {};
-                    return;
-                }
+                if (!map) return; // Đảm bảo map đã được khởi tạo
                 
-                Object.keys(locations).forEach(userId => {
+                const locations = snapshot.val() || {};
+                const activeUserIds = Object.keys(locations);
+
+                // THAY ĐỔI: Xóa tất cả marker khỏi cụm trước khi cập nhật
+                markers.clearLayers();
+                let newMarkersList = [];
+                
+                activeUserIds.forEach(userId => {
                     const userData = locations[userId];
                     const userLatLng = [userData.lat, userData.lng];
                     const userStatus = userData.status || 'Đang di chuyển';
                     const popupContent = `${userData.name}<br><b>${userStatus}</b>`;
                     const icon = createStatusIcon(userData.photo, userStatus);
 
-                    if (userMarkers[userId]) {
-                        userMarkers[userId].setLatLng(userLatLng);
-                        userMarkers[userId].setIcon(icon);
-                        userMarkers[userId].setPopupContent(popupContent);
-                    } else {
-                        const newMarker = L.marker(userLatLng, { icon: icon }).addTo(map);
-                        newMarker.bindPopup(popupContent);
-                        userMarkers[userId] = newMarker;
-                    }
+                    const newMarker = L.marker(userLatLng, { icon: icon });
+                    newMarker.bindPopup(popupContent);
+                    newMarkersList.push(newMarker);
                 });
-
-                Object.keys(userMarkers).forEach(userId => {
-                    if (!locations[userId]) {
-                        userMarkers[userId].remove();
-                        delete userMarkers[userId];
-                    }
-                });
+                
+                // THAY ĐỔI: Thêm tất cả marker mới vào cụm một lần
+                markers.addLayers(newMarkersList);
             });
         }
         
@@ -302,10 +275,9 @@
         }
 
         function handleFitToAll() {
-            const markerGroup = Object.values(userMarkers);
-            if (markerGroup.length > 0 && map) {
-                const featureGroup = L.featureGroup(markerGroup);
-                map.flyToBounds(featureGroup.getBounds().pad(0.2));
+            // THAY ĐỔI: Sử dụng getBounds() của MarkerClusterGroup
+            if (map && markers.getBounds().isValid()) {
+                map.flyToBounds(markers.getBounds().pad(0.2));
             } else {
                 alert("Không có ai khác đang chia sẻ vị trí.");
             }
@@ -315,24 +287,13 @@
             if ('wakeLock' in navigator) {
                 try {
                     if (wakeLock) {
-                        await wakeLock.release();
-                        wakeLock = null;
-                        wakeLockButton.classList.remove('active');
+                        await wakeLock.release(); wakeLock = null; wakeLockButton.classList.remove('active');
                     } else {
-                        wakeLock = await navigator.wakeLock.request('screen');
-                        wakeLockButton.classList.add('active');
-                        wakeLock.addEventListener('release', () => {
-                            wakeLock = null;
-                            wakeLockButton.classList.remove('active');
-                        });
+                        wakeLock = await navigator.wakeLock.request('screen'); wakeLockButton.classList.add('active');
+                        wakeLock.addEventListener('release', () => { wakeLock = null; wakeLockButton.classList.remove('active'); });
                     }
-                } catch (err) {
-                    console.error(`${err.name}, ${err.message}`);
-                    alert('Không thể kích hoạt chức năng giữ màn hình sáng.');
-                }
-            } else {
-                alert('Trình duyệt của bạn không hỗ trợ chức năng này.');
-            }
+                } catch (err) { console.error(`${err.name}, ${err.message}`); alert('Không thể kích hoạt chức năng giữ màn hình sáng.'); }
+            } else { alert('Trình duyệt của bạn không hỗ trợ chức năng này.'); }
         }
 
         // --- PHẦN 7: GẮN SỰ KIỆN ---
@@ -347,22 +308,18 @@
         wakeLockButton.addEventListener('click', handleWakeLock);
         
         statusSelector.addEventListener('change', () => {
-            // Khi trạng thái thay đổi, nếu đang live thì cập nhật ngay
             if (isLive && myLocation) {
                  const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
                  set(myLocationRef, {
                     lat: myLocation[0], lng: myLocation[1], name: currentUser.displayName,
                     photo: currentUser.photoURL,
-                    status: statusSelector.value, // Lấy giá trị mới
+                    status: statusSelector.value,
                     timestamp: serverTimestamp()
                 });
             }
         });
 
-        if (!('wakeLock' in navigator)) {
-            wakeLockButton.style.display = 'none';
-        }
-
+        if (!('wakeLock' in navigator)) { wakeLockButton.style.display = 'none'; }
     </script>
 </body>
 </html>
