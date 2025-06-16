@@ -170,7 +170,7 @@
         // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
         let currentUser = null, map, markers, isLive = false, watchId = null;
         let myLocation = null, wakeLock = null, allLiveUsers = {};
-        let markerObjects = {}; // Để lưu trữ các đối tượng marker
+        let markerObjects = {}; // Lưu trữ các đối tượng marker để tham chiếu
         let isWarningEnabled = false;
         let warningDistance = 500;
         let distanceCheckInterval = null;
@@ -270,9 +270,14 @@
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20
             }).addTo(map);
-            markers = L.markerClusterGroup();
+            markers = L.markerClusterGroup({
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true
+            });
             map.addLayer(markers);
 
+            // Gắn sự kiện để xử lý nút bấm trong popup
             map.on('popupopen', function(e) {
                 const messageButton = e.popup._contentNode.querySelector('.message-from-popup-button');
                 if (messageButton) {
@@ -359,7 +364,7 @@
                 if (!map) return;
                 allLiveUsers = snapshot.val() || {};
                 markers.clearLayers();
-                markerObjects = {}; // Xóa và tạo lại
+                markerObjects = {};
                 
                 Object.keys(allLiveUsers).forEach(userId => {
                     const userData = allLiveUsers[userId];
@@ -378,21 +383,14 @@
                     `;
                     newMarker.bindPopup(popupContent);
 
-                    // Logic mới khi nhấn vào marker
+                    // FIX: Logic click marker đơn giản hóa, để thư viện tự xử lý zoom
+                    // Điều này giải quyết vấn đề click vào marker đã "spiderfied"
                     newMarker.on('click', (e) => {
-                        const clickedMarker = e.target;
-                        if (map.getZoom() < 17) {
-                            map.flyTo(clickedMarker.getLatLng(), 17, {animate: true, duration: 0.7});
-                            map.once('moveend', () => {
-                                clickedMarker.openPopup();
-                            });
-                        } else {
-                            clickedMarker.openPopup();
-                        }
+                         e.target.openPopup();
                     });
 
                     markers.addLayer(newMarker);
-                    markerObjects[userId] = newMarker; // Lưu marker lại
+                    markerObjects[userId] = newMarker;
                 });
                 updateMemberList();
             });
@@ -447,16 +445,15 @@
             });
         }
         
+        // FIX: Tối ưu hóa logic click thành viên từ danh sách
         function handleMemberClick(userId) {
-            const user = allLiveUsers[userId];
             const marker = markerObjects[userId];
-            if (user && map && marker) {
+            if (map && marker) {
                 closeSheet();
-                map.flyTo([user.lat, user.lng], 17, {animate: true, duration: 0.7});
-                map.once('moveend', () => {
-                    markers.zoomToShowLayer(marker, () => {
-                        marker.openPopup();
-                    });
+                // zoomToShowLayer là hàm chuẩn của thư viện để zoom tới marker,
+                // nó sẽ tự động mở cluster và spiderfy nếu cần.
+                markers.zoomToShowLayer(marker, function () {
+                    marker.openPopup();
                 });
             }
         }
