@@ -26,8 +26,8 @@
             font-family: Inter, sans-serif;
         }
         #map { height: 100%; width: 100%; background-color: #f3f4f6; }
-        .leaflet-popup-content-wrapper { border-radius: 8px; }
-        .leaflet-popup-content { margin: 10px !important; font-size: 14px; font-weight: bold; line-height: 1.4; }
+        .leaflet-popup-content-wrapper { border-radius: 12px; padding: 1px; }
+        .leaflet-popup-content { margin: 0 !important; width: auto !important;}
         .map-control-button {
             width: 40px; height: 40px; background-color: white; border-radius: 9999px;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
@@ -271,6 +271,18 @@
             }).addTo(map);
             markers = L.markerClusterGroup();
             map.addLayer(markers);
+
+            // Gắn sự kiện để xử lý nút bấm trong popup
+            map.on('popupopen', function(e) {
+                const messageButton = e.popup._contentNode.querySelector('.message-from-popup-button');
+                if (messageButton) {
+                    messageButton.onclick = function() {
+                        const userId = messageButton.dataset.userId;
+                        const userName = messageButton.dataset.userName;
+                        openQuickMessageModal(userId, userName);
+                    };
+                }
+            });
         }
 
         // --- PHẦN 6: LOGIC CHIA SẺ VỊ TRÍ & TRẠNG THÁI ---
@@ -354,8 +366,17 @@
                     const userStatus = userData.status;
                     const icon = createStatusIcon(userData.photo, userStatus);
                     const newMarker = L.marker(userLatLng, { icon: icon });
-                    newMarker.bindPopup(`<b>${userData.name}</b><br>${userStatus || 'Chưa chọn trạng thái'}`);
-                    newMarker.on('click', () => map.flyTo(userLatLng, 18) );
+                    
+                    const popupContent = `
+                        <div class="p-2 text-center w-40">
+                            <img src="${userData.photo}" class="w-14 h-14 rounded-full mx-auto mb-2 border-2 border-white shadow-lg">
+                            <div class="font-bold text-slate-800 text-base">${userData.name}</div>
+                            <div class="text-sm text-gray-600 mt-1">${userStatus || 'Chưa chọn trạng thái'}</div>
+                            ${ (userId !== currentUser.uid) ? `<button class="message-from-popup-button mt-3 bg-teal-500 text-white text-xs font-bold py-1.5 px-4 rounded-full hover:bg-teal-600" data-user-id="${userId}" data-user-name="${userData.name}">Gửi tin nhắn</button>` : '' }
+                        </div>
+                    `;
+                    newMarker.bindPopup(popupContent);
+
                     newMarkersList.push(newMarker);
                 });
                 markers.addLayers(newMarkersList);
