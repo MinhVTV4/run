@@ -118,7 +118,7 @@
         // --- PHẦN -1: TÍCH HỢP FIREBASE ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
-        import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp, push, remove } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+        import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp, push, remove, onChildAdded } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDn-3B1ZNCq9E9XuNoHHHiyIo_Pegy8Ogk",
@@ -157,13 +157,11 @@
         const memberSheet = document.getElementById('memberSheet');
         const memberListButton = document.getElementById('memberListButton');
         const memberList = document.getElementById('memberList');
-        // Thêm tham chiếu cho Modal tin nhắn
         const quickMessageModal = document.getElementById('quickMessageModal');
         const messageModalBackdrop = document.getElementById('messageModalBackdrop');
         const messageModalContent = document.getElementById('messageModalContent');
         const messageRecipientName = document.getElementById('messageRecipientName');
         const quickMessageButtons = document.getElementById('quickMessageButtons');
-
 
         // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
         let currentUser = null; 
@@ -186,7 +184,7 @@
                 userPhoto.src = user.photoURL;
                 if (!map) initMap(); 
                 listenToLiveLocations();
-                listenForMyMessages(); // Bắt đầu lắng nghe tin nhắn
+                listenForMyMessages();
             } else {
                 currentUser = null;
                 loginScreen.classList.remove('hidden');
@@ -273,16 +271,18 @@
                 let newMarkersList = [];
                 activeUserIds.forEach(userId => {
                     const userData = allLiveUsers[userId];
-                    if(userId === currentUser?.uid) return; // Không vẽ lại marker của chính mình
+                    if (userId === currentUser?.uid) return; 
                     const userLatLng = [userData.lat, userData.lng];
                     const userStatus = userData.status || 'Đang di chuyển';
                     const icon = createStatusIcon(userData.photo, userStatus);
                     
                     const newMarker = L.marker(userLatLng, { icon: icon });
-                    newMarker.on('click', (e) => {
-                        openQuickMessageModal(userId, userData.name);
+                    
+                    // Click vào marker trên bản đồ để zoom
+                    newMarker.on('click', () => {
+                         map.flyTo(userLatLng, 18);
                     });
-
+                    
                     newMarkersList.push(newMarker);
                 });
                 markers.addLayers(newMarkersList);
@@ -323,10 +323,58 @@
             } else { alert('Trình duyệt của bạn không hỗ trợ chức năng này.'); }
         }
 
-        function openSheet() { /* ... Code không đổi ... */ }
-        function closeSheet() { /* ... Code không đổi ... */ }
-        function updateMemberList() { /* ... Code không đổi ... */ }
-        function handleMemberClick(userId) { /* ... Code không đổi ... */ }
+        function openSheet() {
+            bottomSheetContainer.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                sheetBackdrop.classList.add('opacity-100');
+                memberSheet.classList.remove('translate-y-full');
+            });
+        }
+
+        function closeSheet() {
+            sheetBackdrop.classList.remove('opacity-100');
+            memberSheet.classList.add('translate-y-full');
+            setTimeout(() => bottomSheetContainer.classList.add('hidden'), 300);
+        }
+        
+        function updateMemberList() {
+            memberList.innerHTML = '';
+            const users = Object.entries(allLiveUsers);
+            if (users.length === 0) {
+                memberList.innerHTML = '<li class="p-4 text-center text-gray-500">Không có thành viên nào đang hoạt động.</li>';
+                return;
+            }
+            users.forEach(([userId, userData]) => {
+                if (userId === currentUser?.uid) return;
+                const li = document.createElement('li');
+                li.className = 'flex items-center gap-3 p-3 border-b';
+                let borderColorClass = 'border-blue-500';
+                if (userData.status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
+                if (userData.status === 'Đến nơi') borderColorClass = 'border-green-500';
+                if (userData.status === 'Gặp sự cố') borderColorClass = 'border-red-600';
+                li.innerHTML = `
+                    <div class="flex-grow flex items-center gap-3 cursor-pointer" data-user-id="${userId}">
+                        <img src="${userData.photo}" class="w-10 h-10 rounded-full border-2 ${borderColorClass}">
+                        <div>
+                            <div class="font-semibold text-slate-800">${userData.name}</div>
+                            <div class="text-sm text-gray-600">${userData.status || 'Đang di chuyển'}</div>
+                        </div>
+                    </div>
+                    <button class="message-button flex-shrink-0 p-2 rounded-full hover:bg-gray-200" data-user-id="${userId}" data-user-name="${userData.name}">
+                        <svg class="w-6 h-6 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd"></path></svg>
+                    </button>
+                `;
+                memberList.appendChild(li);
+            });
+        }
+        
+        function handleMemberClick(userId) {
+             const user = allLiveUsers[userId];
+             if (user && map) {
+                 map.flyTo([user.lat, user.lng], 18);
+                 closeSheet();
+             }
+        }
 
         // --- PHẦN 7: LOGIC TIN NHẮN NHANH ---
         function openQuickMessageModal(recipientId, recipientName) {
@@ -349,28 +397,21 @@
         function sendQuickMessage(e) {
             const recipientId = quickMessageModal.dataset.recipientId;
             const messageText = e.target.textContent;
-
             if (!recipientId || !currentUser) return;
-            
             const messagesRef = ref(db, `messages/${recipientId}`);
             push(messagesRef, {
-                fromId: currentUser.uid,
-                fromName: currentUser.displayName,
-                text: messageText,
-                timestamp: serverTimestamp()
-            }).then(() => {
-                 closeQuickMessageModal();
-            }).catch(err => console.error("Gửi tin nhắn thất bại:", err));
+                fromId: currentUser.uid, fromName: currentUser.displayName,
+                text: messageText, timestamp: serverTimestamp()
+            }).then(() => { closeQuickMessageModal(); })
+              .catch(err => console.error("Gửi tin nhắn thất bại:", err));
         }
         
         function listenForMyMessages() {
             if (!currentUser) return;
             const myMessagesRef = ref(db, `messages/${currentUser.uid}`);
-
             onChildAdded(myMessagesRef, (snapshot) => {
                 const messageData = snapshot.val();
                 const messageKey = snapshot.key;
-                
                 const senderData = allLiveUsers[messageData.fromId];
                 if (senderData) {
                     const popupContent = `<b>${messageData.fromName}:</b><br>${messageData.text}`;
@@ -378,17 +419,9 @@
                                    .setLatLng([senderData.lat, senderData.lng])
                                    .setContent(popupContent)
                                    .openOn(map);
-                    
-                    // Tự đóng popup sau 20 giây
-                    setTimeout(() => {
-                        map.closePopup(popup);
-                    }, 20000);
+                    setTimeout(() => map.closePopup(popup), 20000);
                 }
-
-                // Tự xóa tin nhắn sau 3 phút
-                setTimeout(() => {
-                    remove(ref(db, `messages/${currentUser.uid}/${messageKey}`));
-                }, 3 * 60 * 1000);
+                setTimeout(() => remove(ref(db, `messages/${currentUser.uid}/${messageKey}`)), 3 * 60 * 1000);
             });
         }
 
@@ -403,20 +436,24 @@
         fitToAllButton.addEventListener('click', handleFitToAll);
         wakeLockButton.addEventListener('click', handleWakeLock);
         
-        // Sự kiện cho Bottom Sheet
         memberListButton.addEventListener('click', openSheet);
         sheetBackdrop.addEventListener('click', closeSheet);
         memberList.addEventListener('click', (e) => {
-            const li = e.target.closest('li[data-user-id]');
-            if (li) handleMemberClick(li.dataset.userId);
+            const messageButton = e.target.closest('.message-button');
+            if (messageButton) {
+                e.stopPropagation();
+                openQuickMessageModal(messageButton.dataset.userId, messageButton.dataset.userName);
+                return;
+            }
+            const listItem = e.target.closest('div[data-user-id]');
+            if (listItem) {
+                handleMemberClick(listItem.dataset.userId);
+            }
         });
         
-        // Sự kiện cho Modal Tin nhắn
         messageModalBackdrop.addEventListener('click', closeQuickMessageModal);
         quickMessageButtons.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') {
-                sendQuickMessage(e);
-            }
+            if (e.target.tagName === 'BUTTON') sendQuickMessage(e);
         });
 
         statusSelector.addEventListener('change', () => {
