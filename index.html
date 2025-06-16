@@ -35,99 +35,86 @@
         .map-control-button:hover { background-color: #f3f4f6; }
         .map-control-button.active { background-color: #14b8a6; color: white; }
         .custom-marker-icon img { width: 100%; height: 100%; border-radius: 9999px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-        #bottomSheetContainer.hidden, #quickMessageModal.hidden, #settingsModal.hidden { display: none; }
-        #sheetBackdrop, #messageModalBackdrop, #settingsModalBackdrop { transition: opacity 0.3s ease-in-out; }
-        #memberSheet, #messageModalContent, #settingsModalContent { transition: transform 0.3s ease-in-out; }
+        .modal-hidden { display: none; }
+        .backdrop { transition: opacity 0.3s ease-in-out; }
+        .modal-content { transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-100 text-slate-800 font-sans">
 
-    <!-- MÀN HÌNH ĐĂNG NHẬP -->
-    <div id="loginScreen" class="flex flex-col items-center justify-center h-full p-4 text-center">
-        <h1 class="text-3xl font-bold text-teal-600 mb-4">Marathon Tracker</h1>
-        <p class="text-gray-600 mb-8">Đăng nhập để tham gia và chia sẻ vị trí của bạn</p>
-        <button id="loginButton" class="bg-white px-4 py-2 rounded-full shadow-md font-semibold text-gray-700 flex items-center gap-3 hover:bg-gray-200">
-            <svg class="w-6 h-6" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.902,35.61,44,29.593,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
-            Đăng nhập với Google
-        </button>
-    </div>
-
     <!-- GIAO DIỆN CHÍNH CỦA ỨNG DỤNG -->
-    <div id="appContainer" class="hidden h-full flex flex-col">
-        <header class="bg-white shadow-md py-2 px-4 flex-shrink-0 flex justify-between items-center">
-            <div class="flex items-center gap-2 overflow-hidden">
-                <img id="userPhoto" class="w-8 h-8 rounded-full" src="" alt="User photo">
-                <span id="userName" class="text-sm font-semibold text-slate-700 truncate"></span>
-            </div>
-            <div class="flex items-center gap-4">
-                <button id="memberListButton" title="Danh sách thành viên" class="map-control-button !w-8 !h-8"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-600" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg></button>
-                <button id="settingsButton" title="Cài đặt" class="map-control-button !w-8 !h-8"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg></button>
-                <button id="logoutButton" class="text-sm text-gray-600 hover:text-red-500 font-semibold flex-shrink-0">Đăng xuất</button>
-            </div>
-        </header>
-
-        <main id="map" class="flex-grow relative">
-             <!-- THANH CẢNH BÁO -->
-            <div id="distanceWarningBanner" class="hidden absolute top-0 left-0 right-0 z-[1000] bg-red-500 text-white p-2 text-center font-bold animate-pulse">
-                ⚠️ Bạn đang ở quá xa nhóm!
-            </div>
-            <div class="absolute top-12 right-3 z-[1000] flex flex-col gap-2">
-                <button id="recenterButton" title="Định vị lại" class="map-control-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v8m-4-4h8" /></svg></button>
-                <button id="fitToAllButton" title="Xem toàn cảnh" class="map-control-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4h4m12 4V4h-4M4 16v4h4m12-4v4h-4" /></svg></button>
-                <button id="wakeLockButton" title="Giữ màn hình sáng" class="map-control-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg></button>
-            </div>
-        </main>
-        
-        <footer class="bg-white/80 backdrop-blur-sm p-3 text-center">
-             <div id="controlsContainer" class="flex gap-2 items-center">
-                <button id="goLiveButton" class="flex-grow bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all">
-                    Bắt đầu chia sẻ vị trí
+    <div id="appContainer" class="h-full flex flex-col">
+        <!-- Màn hình chào mừng (Mặc định) -->
+        <div id="welcomeScreen" class="flex flex-col items-center justify-center h-full p-4 text-center">
+            <h1 class="text-4xl font-bold text-teal-600 mb-4">Marathon Tracker</h1>
+            <p class="text-gray-600 mb-8 max-w-md">Tạo phòng theo dõi riêng cho sự kiện, đội nhóm của bạn và mời mọi người tham gia chỉ bằng một đường link.</p>
+            <div class="w-full max-w-sm space-y-4">
+                <button id="createRoomButton" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all text-lg">
+                    Tạo phòng mới
                 </button>
-                <select id="statusSelector" class="hidden bg-gray-200 border border-gray-300 text-gray-900 font-semibold text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-3">
-                  <option selected>Đang di chuyển</option>
-                  <option>Dừng nghỉ</option>
-                  <option>Gặp sự cố</option>
-                  <option>Đến nơi</option>
-                </select>
+                 <p class="text-sm text-gray-500">Hoặc truy cập link mời để tham gia</p>
             </div>
-            <div id="statusMessage" class="hidden mt-2 text-sm text-gray-600">
-                Đang chia sẻ vị trí...
-            </div>
-        </footer>
+        </div>
+        
+        <!-- Màn hình bản đồ (Ẩn ban đầu) -->
+        <div id="mapScreen" class="hidden h-full flex flex-col">
+            <header class="bg-white shadow-md py-2 px-4 flex-shrink-0 flex justify-between items-center">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <img id="userPhoto" class="w-8 h-8 rounded-full" src="" alt="User photo">
+                    <span id="userName" class="text-sm font-semibold text-slate-700 truncate"></span>
+                </div>
+                <div id="header-controls" class="flex items-center gap-4">
+                     <button id="inviteButton" title="Mời bạn bè" class="map-control-button !w-auto !h-8 px-3"><span class="text-sm font-semibold">Mời</span></button>
+                     <button id="memberListButton" title="Danh sách thành viên" class="map-control-button !w-8 !h-8"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-600" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg></button>
+                     <button id="logoutButton" class="text-sm text-gray-600 hover:text-red-500 font-semibold flex-shrink-0">Thoát</button>
+                </div>
+            </header>
+
+            <main id="map" class="flex-grow relative">
+                <div id="main-map-controls" class="absolute top-3 right-3 z-[1000] flex flex-col gap-2">
+                    <button id="recenterButton" title="Định vị lại" class="map-control-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v8m-4-4h8" /></svg></button>
+                    <button id="fitToAllButton" title="Xem toàn cảnh" class="map-control-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4h4m12 4V4h-4M4 16v4h4m12-4v4h-4" /></svg></button>
+                    <button id="wakeLockButton" title="Giữ màn hình sáng" class="map-control-button"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg></button>
+                </div>
+            </main>
+            
+            <footer class="bg-white/80 backdrop-blur-sm p-3 text-center">
+                 <div id="controlsContainer" class="flex gap-2 items-center">
+                    <button id="goLiveButton" class="flex-grow bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all">
+                        Bắt đầu chia sẻ vị trí
+                    </button>
+                    <select id="statusSelector" class="hidden bg-gray-200 border border-gray-300 text-gray-900 font-semibold text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-3">
+                      <option value="" disabled selected>Chọn trạng thái</option>
+                      <option>Đang di chuyển</option>
+                      <option>Dừng nghỉ</option>
+                      <option>Gặp sự cố</option>
+                      <option>Đến nơi</option>
+                    </select>
+                </div>
+            </footer>
+        </div>
     </div>
 
     <!-- CÁC MODAL & BOTTOM SHEET -->
-    <div id="bottomSheetContainer" class="hidden fixed inset-0 z-[2000]"><div id="sheetBackdrop" class="absolute inset-0 bg-black bg-opacity-50"></div><div id="memberSheet" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl max-h-[70vh] flex flex-col transform translate-y-full"><div class="p-4 border-b flex-shrink-0"><h2 class="text-xl font-bold text-teal-600 text-center">Danh sách thành viên</h2></div><ul id="memberList" class="overflow-y-auto p-2"></ul></div></div>
-    <div id="quickMessageModal" class="hidden fixed inset-0 z-[3000] flex items-center justify-center p-4"><div id="messageModalBackdrop" class="absolute inset-0 bg-black bg-opacity-60"></div><div id="messageModalContent" class="bg-white rounded-lg shadow-xl w-full max-w-xs transform scale-95 opacity-0"><div class="p-4 border-b"><h3 id="messageRecipientName" class="font-bold text-center"></h3></div><div id="quickMessageButtons" class="p-2 grid grid-cols-1 gap-2"><button class="w-full text-left p-3 hover:bg-gray-100 rounded-lg">Đang đến!</button><button class="w-full text-left p-3 hover:bg-gray-100 rounded-lg">Cần hỗ trợ?</button><button class="w-full text-left p-3 hover:bg-gray-100 rounded-lg">OK!</button><button class="w-full text-left p-3 hover:bg-gray-100 rounded-lg">Đợi chút nhé!</button></div></div></div>
-    
-    <!-- MODAL CÀI ĐẶT -->
-    <div id="settingsModal" class="hidden fixed inset-0 z-[4000] flex items-center justify-center p-4">
-        <div id="settingsModalBackdrop" class="absolute inset-0 bg-black bg-opacity-60"></div>
-        <div id="settingsModalContent" class="bg-white rounded-lg shadow-xl w-full max-w-sm transform scale-95 opacity-0">
-            <div class="p-4 border-b flex justify-between items-center"><h3 class="font-bold text-lg">Cài đặt</h3><button id="closeSettingsButton" class="font-bold text-xl">&times;</button></div>
-            <div class="p-4 space-y-4">
-                <div class="flex items-center justify-between">
-                    <label for="warningToggle" class="font-medium text-gray-900">Bật cảnh báo khoảng cách</label>
-                    <label class="inline-flex relative items-center cursor-pointer">
-                        <input type="checkbox" id="warningToggle" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-                    </label>
-                </div>
-                <div id="distanceSettings" class="hidden space-y-2">
-                    <label for="distanceInput" class="block text-sm font-medium text-gray-900">Cảnh báo khi xa nhóm hơn (mét):</label>
-                    <input type="number" id="distanceInput" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="500" required />
-                </div>
-                <hr>
-                <button id="saveSettingsButton" class="w-full text-white bg-teal-600 hover:bg-teal-700 focus:ring-4 focus:outline-none focus:ring-teal-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Lưu & Đóng</button>
-            </div>
+    <div id="loginModal" class="modal-hidden fixed inset-0 z-[5000] flex items-center justify-center p-4">
+        <div class="backdrop absolute inset-0 bg-black bg-opacity-60"></div>
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-xs text-center p-6 transform scale-95 opacity-0">
+            <h3 class="font-bold text-lg mb-2">Yêu cầu đăng nhập</h3>
+            <p class="text-sm text-gray-600 mb-6">Bạn cần đăng nhập để tạo hoặc tham gia phòng.</p>
+            <button id="modalLoginButton" class="w-full bg-white px-4 py-2 rounded-full shadow-md font-semibold text-gray-700 flex items-center justify-center gap-3 hover:bg-gray-200 border">
+                <svg class="w-6 h-6" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.902,35.61,44,29.593,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
+                Đăng nhập với Google
+            </button>
         </div>
     </div>
+    
+    <div id="bottomSheetContainer" class="modal-hidden fixed inset-0 z-[2000]"><div id="sheetBackdrop" class="backdrop absolute inset-0 bg-black bg-opacity-50"></div><div id="memberSheet" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl max-h-[70vh] flex flex-col transform translate-y-full"><div class="p-4 border-b flex-shrink-0"><h2 class="text-xl font-bold text-teal-600 text-center">Danh sách thành viên</h2></div><ul id="memberList" class="overflow-y-auto p-2"></ul></div></div>
     
     <script type="module">
         // --- PHẦN -1: TÍCH HỢP FIREBASE ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
-        import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp, push, remove, onChildAdded } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+        import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDn-3B1ZNCq9E9XuNoHHHiyIo_Pegy8Ogk",
@@ -142,73 +129,114 @@
         const auth = getAuth(app);
         const db = getDatabase(app);
 
-        // --- PHẦN 0: CÀI ĐẶT CHUNG ---
-        const EVENT_ID = "marathon_2025";
-        const setAppHeight = () => { document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`); };
+        // --- PHẦN 0: CÀI ĐẶT CHUNG & BIẾN TOÀN CỤC ---
+        const setAppHeight = () => document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
         window.addEventListener('resize', setAppHeight);
         setAppHeight();
         
-        // --- PHẦN 1: THAM CHIẾU HTML ---
-        const loginScreen = document.getElementById('loginScreen');
-        const appContainer = document.getElementById('appContainer');
-        const loginButton = document.getElementById('loginButton');
-        const logoutButton = document.getElementById('logoutButton');
-        const userPhoto = document.getElementById('userPhoto');
-        const userName = document.getElementById('userName');
-        const goLiveButton = document.getElementById('goLiveButton');
-        const statusMessage = document.getElementById('statusMessage');
-        const recenterButton = document.getElementById('recenterButton');
-        const fitToAllButton = document.getElementById('fitToAllButton');
-        const wakeLockButton = document.getElementById('wakeLockButton');
-        const statusSelector = document.getElementById('statusSelector');
-        const bottomSheetContainer = document.getElementById('bottomSheetContainer');
-        const sheetBackdrop = document.getElementById('sheetBackdrop');
-        const memberSheet = document.getElementById('memberSheet');
-        const memberListButton = document.getElementById('memberListButton');
-        const memberList = document.getElementById('memberList');
-        const quickMessageModal = document.getElementById('quickMessageModal');
-        const messageModalBackdrop = document.getElementById('messageModalBackdrop');
-        const messageModalContent = document.getElementById('messageModalContent');
-        const messageRecipientName = document.getElementById('messageRecipientName');
-        const quickMessageButtons = document.getElementById('quickMessageButtons');
-        const settingsButton = document.getElementById('settingsButton');
-        const settingsModal = document.getElementById('settingsModal');
-        const settingsModalBackdrop = document.getElementById('settingsModalBackdrop');
-        const settingsModalContent = document.getElementById('settingsModalContent');
-        const closeSettingsButton = document.getElementById('closeSettingsButton');
-        const warningToggle = document.getElementById('warningToggle');
-        const distanceSettings = document.getElementById('distanceSettings');
-        const distanceInput = document.getElementById('distanceInput');
-        const saveSettingsButton = document.getElementById('saveSettingsButton');
-        const distanceWarningBanner = document.getElementById('distanceWarningBanner');
-
-        // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
-        let currentUser = null, map, markers, isLive = false, watchId = null;
+        let currentUser = null, currentRoomId = null, currentRoomAdminId = null;
+        let map, markers, isLive = false, watchId = null;
         let myLocation = null, wakeLock = null, allLiveUsers = {};
-        let isWarningEnabled = false;
-        let warningDistance = 500;
-        let distanceCheckInterval = null;
+        
+        // --- PHẦN 1: THAM CHIẾU HTML ---
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const createRoomButton = document.getElementById('createRoomButton');
+        const mapScreen = document.getElementById('mapScreen');
+        const loginModal = document.getElementById('loginModal');
+        const modalLoginButton = document.getElementById('modalLoginButton');
+        // Các tham chiếu cho màn hình bản đồ
+        let userPhoto, userName, logoutButton, goLiveButton, statusSelector, memberListButton, inviteButton;
+        let recenterButton, fitToAllButton, wakeLockButton;
+        let bottomSheetContainer, sheetBackdrop, memberSheet, memberList;
 
-        // --- PHẦN 3: XỬ LÝ AUTHENTICATION ---
-        onAuthStateChanged(auth, user => {
-            if (user) {
+
+        // --- PHẦN 2: LUỒNG ĐIỀU KHIỂN CHÍNH (URL & AUTH) ---
+        
+        function main() {
+            const params = new URLSearchParams(window.location.search);
+            currentRoomId = params.get('room');
+
+            onAuthStateChanged(auth, user => {
                 currentUser = user;
-                loginScreen.classList.add('hidden');
-                appContainer.classList.remove('hidden'); appContainer.classList.add('flex');
-                userName.textContent = user.displayName; userPhoto.src = user.photoURL;
-                if (!map) initMap(); 
-                listenToLiveLocations();
-                listenForMyMessages();
-                loadSettings();
-            } else {
-                currentUser = null;
-                loginScreen.classList.remove('hidden');
-                appContainer.classList.add('hidden'); appContainer.classList.remove('flex');
-                if (isLive) handleGoLive();
-            }
-        });
+                if (currentRoomId) {
+                    if (currentUser) {
+                        loginModal.classList.add('modal-hidden');
+                        joinRoom(currentRoomId);
+                    } else {
+                        showLoginModal();
+                    }
+                } else {
+                    welcomeScreen.style.display = 'flex';
+                    mapScreen.style.display = 'none';
+                }
+            });
+        }
+        main();
 
-        // --- PHẦN 4: KHỞI TẠO MAP ---
+        function showLoginModal() {
+            loginModal.classList.remove('modal-hidden');
+            requestAnimationFrame(() => {
+                loginModal.querySelector('.backdrop').classList.add('opacity-100');
+                loginModal.querySelector('.modal-content').classList.remove('scale-95', 'opacity-0');
+            });
+        }
+
+        async function createNewRoom() {
+            if (!currentUser) {
+                showLoginModal();
+                return;
+            }
+            const roomId = Math.random().toString(36).substring(2, 9);
+            const newRoomRef = ref(db, `rooms/${roomId}`);
+            await set(newRoomRef, {
+                adminId: currentUser.uid,
+                createdAt: serverTimestamp(),
+                name: `${currentUser.displayName}'s Room`
+            });
+            window.location.href = `?room=${roomId}`;
+        }
+        
+        async function joinRoom(roomId) {
+            const roomRef = ref(db, `rooms/${roomId}`);
+            const snapshot = await get(roomRef);
+            if (!snapshot.exists()) {
+                alert("Phòng không tồn tại!");
+                window.location.href = window.location.pathname;
+                return;
+            }
+            
+            currentRoomAdminId = snapshot.val().adminId;
+            welcomeScreen.style.display = 'none';
+            mapScreen.style.display = 'flex';
+            
+            initializeMapScreenElements();
+            setupEventListeners();
+            
+            userPhoto.src = currentUser.photoURL;
+            userName.textContent = currentUser.displayName;
+
+            if (!map) initMap();
+            listenToLiveLocations(roomId);
+        }
+
+        // --- PHẦN 3: KHỞI TẠO GIAO DIỆN BẢN ĐỒ ---
+        function initializeMapScreenElements() {
+            userPhoto = document.getElementById('userPhoto');
+            userName = document.getElementById('userName');
+            logoutButton = document.getElementById('logoutButton');
+            goLiveButton = document.getElementById('goLiveButton');
+            statusSelector = document.getElementById('statusSelector');
+            memberListButton = document.getElementById('memberListButton');
+            inviteButton = document.getElementById('inviteButton');
+            recenterButton = document.getElementById('recenterButton');
+            fitToAllButton = document.getElementById('fitToAllButton');
+            wakeLockButton = document.getElementById('wakeLockButton');
+            bottomSheetContainer = document.getElementById('bottomSheetContainer');
+            sheetBackdrop = document.getElementById('sheetBackdrop');
+            memberSheet = document.getElementById('memberSheet');
+            memberList = document.getElementById('memberList');
+        }
+        
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([21.0285, 105.8542], 13);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -218,39 +246,34 @@
             markers = L.markerClusterGroup();
             map.addLayer(markers);
         }
-
-        // --- PHẦN 5: LOGIC CHIA SẺ VỊ TRÍ & TRẠNG THÁI ---
-        function handleGoLive() {
-             isLive = !isLive;
-            if (isLive) {
-                goLiveButton.textContent = "Dừng chia sẻ";
-                goLiveButton.classList.replace('bg-teal-500', 'bg-red-500');
-                goLiveButton.classList.replace('hover:bg-teal-600', 'hover:bg-red-600');
-                statusMessage.classList.remove('hidden'); statusSelector.classList.remove('hidden');
-                const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
-                watchId = navigator.geolocation.watchPosition(updateMyLocation, handleGeoError, geoOptions);
-                // Chỉ bắt đầu kiểm tra nếu người dùng đã bật cài đặt
-                if (isWarningEnabled) {
-                    distanceCheckInterval = setInterval(checkMyDistance, 10000);
-                }
-            } else {
-                goLiveButton.textContent = "Bắt đầu chia sẻ vị trí";
-                goLiveButton.classList.replace('bg-red-500', 'bg-teal-500');
-                goLiveButton.classList.replace('hover:bg-red-600', 'hover:bg-teal-600');
-                statusMessage.classList.add('hidden'); statusSelector.classList.add('hidden');
-                if (watchId) navigator.geolocation.clearWatch(watchId);
-                removeMyLocationFromDB();
-                clearInterval(distanceCheckInterval);
-                distanceWarningBanner.classList.add('hidden');
-            }
+        
+        // --- PHẦN 4: LOGIC CHIA SẺ VỊ TRÍ (TRONG PHÒNG) ---
+        function listenToLiveLocations(roomId) {
+            const eventRef = ref(db, `rooms/${roomId}/live_locations`);
+            onValue(eventRef, (snapshot) => {
+                if (!map) return;
+                allLiveUsers = snapshot.val() || {};
+                markers.clearLayers();
+                let newMarkersList = [];
+                Object.keys(allLiveUsers).forEach(userId => {
+                    const userData = allLiveUsers[userId];
+                    const userLatLng = [userData.lat, userData.lng];
+                    const icon = createStatusIcon(userData.photo, userData.status);
+                    const newMarker = L.marker(userLatLng, { icon });
+                    newMarker.on('click', () => map.flyTo(userLatLng, 18));
+                    newMarkersList.push(newMarker);
+                });
+                markers.addLayers(newMarkersList);
+                updateMemberList();
+            });
         }
         
         function updateMyLocation(position) {
-            if (!currentUser) return;
+            if (!currentUser || !currentRoomId) return;
             const { latitude, longitude } = position.coords;
             myLocation = [latitude, longitude];
-            const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
-            const currentStatus = statusSelector.value;
+            const myLocationRef = ref(db, `rooms/${currentRoomId}/live_locations/${currentUser.uid}`);
+            const currentStatus = statusSelector.value || null; // Gửi null nếu chưa chọn
             set(myLocationRef, {
                 lat: latitude, lng: longitude, name: currentUser.displayName,
                 photo: currentUser.photoURL, status: currentStatus,
@@ -259,18 +282,12 @@
             onDisconnect(myLocationRef).remove();
         }
 
-        function removeMyLocationFromDB() {
-             if (!currentUser) return;
-             const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
-             set(myLocationRef, null);
-             myLocation = null;
-        }
-
         function createStatusIcon(photoUrl, status) {
-            let borderColorClass = 'border-blue-500';
-            if (status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
-            if (status === 'Đến nơi') borderColorClass = 'border-green-500';
-            if (status === 'Gặp sự cố') borderColorClass = 'border-red-600';
+            const effectiveStatus = status || 'Đang di chuyển';
+            let borderColorClass = 'border-blue-500'; // Mặc định
+            if (effectiveStatus === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
+            if (effectiveStatus === 'Đến nơi') borderColorClass = 'border-green-500';
+            if (effectiveStatus === 'Gặp sự cố') borderColorClass = 'border-red-600';
             return L.divIcon({
                 html: `<img src="${photoUrl}" class="w-full h-full rounded-full border-4 ${borderColorClass}">`,
                 className: 'custom-marker-icon', iconSize: [40, 40],
@@ -278,63 +295,58 @@
             });
         }
 
-        function listenToLiveLocations() {
-            const eventRef = ref(db, `live_locations/${EVENT_ID}`);
-            onValue(eventRef, (snapshot) => {
-                if (!map) return;
-                allLiveUsers = snapshot.val() || {};
-                const activeUserIds = Object.keys(allLiveUsers);
-                markers.clearLayers();
-                let newMarkersList = [];
-                activeUserIds.forEach(userId => {
-                    const userData = allLiveUsers[userId];
-                    const userLatLng = [userData.lat, userData.lng];
-                    const userStatus = userData.status || 'Đang di chuyển';
-                    const icon = createStatusIcon(userData.photo, userStatus);
-                    const newMarker = L.marker(userLatLng, { icon: icon });
-                    newMarker.on('click', () => map.flyTo(userLatLng, 18) );
-                    newMarkersList.push(newMarker);
-                });
-                markers.addLayers(newMarkersList);
-                updateMemberList();
-            });
-        }
-        
-        function handleGeoError(error) {
-            console.error(error);
-            alert(`Lỗi vị trí: ${error.message}`);
-            if (isLive) handleGoLive();
-        }
-
-        // --- PHẦN 6: HÀM ĐIỀU KHIỂN & GIAO DIỆN PHỤ ---
-        function handleRecenter() {
-            if (myLocation && map) map.flyTo(myLocation, 16);
-            else alert("Chưa có vị trí của bạn để định vị.");
-        }
-
-        function handleFitToAll() {
-            if (map && markers.getBounds().isValid()) {
-                map.flyToBounds(markers.getBounds().pad(0.2));
+        function handleGoLive() {
+             isLive = !isLive;
+            if (isLive) {
+                goLiveButton.textContent = "Dừng chia sẻ";
+                statusSelector.classList.remove('hidden');
+                const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+                watchId = navigator.geolocation.watchPosition(updateMyLocation, (err) => alert(`Lỗi vị trí: ${err.message}`), geoOptions);
             } else {
-                alert("Không có ai khác đang chia sẻ vị trí.");
+                goLiveButton.textContent = "Bắt đầu chia sẻ vị trí";
+                statusSelector.classList.add('hidden');
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                const myLocationRef = ref(db, `rooms/${currentRoomId}/live_locations/${currentUser.uid}`);
+                set(myLocationRef, null);
+                myLocation = null;
             }
         }
 
-        async function handleWakeLock() {
-            if ('wakeLock' in navigator) {
-                try {
-                    if (wakeLock) {
-                        await wakeLock.release(); wakeLock = null; wakeLockButton.classList.remove('active');
-                    } else {
-                        wakeLock = await navigator.wakeLock.request('screen'); wakeLockButton.classList.add('active');
-                        wakeLock.addEventListener('release', () => { wakeLock = null; wakeLockButton.classList.remove('active'); });
-                    }
-                } catch (err) { console.error(`${err.name}, ${err.message}`); alert('Không thể kích hoạt chức năng giữ màn hình sáng.'); }
-            } else { alert('Trình duyệt của bạn không hỗ trợ chức năng này.'); }
+        function updateMemberList() {
+            memberList.innerHTML = '';
+            const users = Object.entries(allLiveUsers);
+            if (users.length === 0) {
+                memberList.innerHTML = '<li class="p-4 text-center text-gray-500">Không có ai đang hoạt động.</li>';
+                return;
+            }
+            users.forEach(([userId, userData]) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center gap-3 p-3 border-b';
+                const statusText = userData.status || 'Bình thường';
+                const icon = createStatusIcon(userData.photo, userData.status);
+                li.innerHTML = `
+                    <div class="flex-grow flex items-center gap-3 cursor-pointer" data-user-id="${userId}">
+                        <div class="w-10 h-10">${icon.options.html}</div>
+                        <div>
+                            <div class="font-semibold text-slate-800">${userData.name}</div>
+                            <div class="text-sm text-gray-600">${statusText}</div>
+                        </div>
+                    </div>
+                `;
+                memberList.appendChild(li);
+            });
         }
 
+        function handleMemberClick(userId) {
+             const user = allLiveUsers[userId];
+             if (user && map) {
+                 map.flyTo([user.lat, user.lng], 18);
+                 closeSheet();
+             }
+        }
+        
         function openSheet() {
-            bottomSheetContainer.classList.remove('hidden');
+            bottomSheetContainer.classList.remove('modal-hidden');
             requestAnimationFrame(() => {
                 sheetBackdrop.classList.add('opacity-100');
                 memberSheet.classList.remove('translate-y-full');
@@ -344,238 +356,48 @@
         function closeSheet() {
             sheetBackdrop.classList.remove('opacity-100');
             memberSheet.classList.add('translate-y-full');
-            setTimeout(() => bottomSheetContainer.classList.add('hidden'), 300);
-        }
-        
-        function updateMemberList() {
-            memberList.innerHTML = '';
-            const users = Object.entries(allLiveUsers);
-            if (users.length === 0) {
-                memberList.innerHTML = '<li class="p-4 text-center text-gray-500">Không có thành viên nào đang hoạt động.</li>';
-                return;
-            }
-            users.forEach(([userId, userData]) => {
-                if (userId === currentUser?.uid) return;
-                const li = document.createElement('li');
-                li.className = 'flex items-center gap-3 p-3 border-b';
-                let borderColorClass = 'border-blue-500';
-                if (userData.status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
-                if (userData.status === 'Đến nơi') borderColorClass = 'border-green-500';
-                if (userData.status === 'Gặp sự cố') borderColorClass = 'border-red-600';
-                li.innerHTML = `
-                    <div class="flex-grow flex items-center gap-3 cursor-pointer" data-user-id="${userId}">
-                        <img src="${userData.photo}" class="w-10 h-10 rounded-full border-2 ${borderColorClass}">
-                        <div>
-                            <div class="font-semibold text-slate-800">${userData.name}</div>
-                            <div class="text-sm text-gray-600">${userData.status || 'Đang di chuyển'}</div>
-                        </div>
-                    </div>
-                    <button class="message-button flex-shrink-0 p-2 rounded-full hover:bg-gray-200" data-user-id="${userId}" data-user-name="${userData.name}">
-                        <svg class="w-6 h-6 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clip-rule="evenodd"></path></svg>
-                    </button>
-                `;
-                memberList.appendChild(li);
-            });
-        }
-        
-        function handleMemberClick(userId) {
-             const user = allLiveUsers[userId];
-             if (user && map) {
-                 map.flyTo([user.lat, user.lng], 18);
-                 closeSheet();
-             }
+            setTimeout(() => bottomSheetContainer.classList.add('modal-hidden'), 300);
         }
 
-        // --- PHẦN 7: LOGIC TIN NHẮN & CÀI ĐẶT ---
-        function openQuickMessageModal(recipientId, recipientName) {
-            messageRecipientName.textContent = `Gửi tin nhắn cho ${recipientName}`;
-            quickMessageModal.dataset.recipientId = recipientId;
-            quickMessageModal.classList.remove('hidden');
-            requestAnimationFrame(() => {
-                messageModalContent.classList.remove('scale-95', 'opacity-0');
-                messageModalContent.classList.add('scale-100', 'opacity-100');
-            });
-        }
-        
-        function closeQuickMessageModal() {
-            messageModalContent.classList.add('scale-95', 'opacity-0');
-             setTimeout(() => { quickMessageModal.classList.add('hidden'); }, 200);
-        }
-
-        function sendQuickMessage(e) {
-            const recipientId = quickMessageModal.dataset.recipientId;
-            const messageText = e.target.textContent;
-            if (!recipientId || !currentUser) return;
-            const messagesRef = ref(db, `messages/${recipientId}`);
-            push(messagesRef, {
-                fromId: currentUser.uid, fromName: currentUser.displayName,
-                text: messageText, timestamp: serverTimestamp()
-            }).then(() => { closeQuickMessageModal(); })
-              .catch(err => console.error("Gửi tin nhắn thất bại:", err));
-        }
-        
-        function listenForMyMessages() {
-            if (!currentUser) return;
-            const myMessagesRef = ref(db, `messages/${currentUser.uid}`);
-            onChildAdded(myMessagesRef, (snapshot) => {
-                const messageData = snapshot.val();
-                const messageKey = snapshot.key;
-                const senderData = allLiveUsers[messageData.fromId];
-                if (senderData) {
-                    const popupContent = `<b>${messageData.fromName}:</b><br>${messageData.text}`;
-                    const popup = L.popup({ autoClose: false, closeOnClick: true })
-                                   .setLatLng([senderData.lat, senderData.lng])
-                                   .setContent(popupContent)
-                                   .openOn(map);
-                    setTimeout(() => map.closePopup(popup), 20000);
+        // --- PHẦN 5: GẮN SỰ KIỆN ---
+        function setupEventListeners() {
+            logoutButton.addEventListener('click', () => {
+                if (isLive) {
+                    const myLocationRef = ref(db, `rooms/${currentRoomId}/live_locations/${currentUser.uid}`);
+                    set(myLocationRef, null);
                 }
-                setTimeout(() => remove(ref(db, `messages/${currentUser.uid}/${messageKey}`)), 3 * 60 * 1000);
-            });
-        }
-
-        function openSettingsModal() {
-            distanceInput.value = warningDistance;
-            warningToggle.checked = isWarningEnabled;
-            distanceSettings.classList.toggle('hidden', !isWarningEnabled);
-            settingsModal.classList.remove('hidden');
-            requestAnimationFrame(() => {
-                settingsModalContent.classList.remove('scale-95', 'opacity-0');
-                settingsModalContent.classList.add('scale-100', 'opacity-100');
-            });
-        }
-
-        function closeSettingsModal() {
-            settingsModalContent.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => settingsModal.classList.add('hidden'), 200);
-        }
-
-        function saveSettings() {
-            const newDistance = parseInt(distanceInput.value, 10);
-            isWarningEnabled = warningToggle.checked;
-            
-            if (isWarningEnabled && (!newDistance || newDistance <= 0)) {
-                alert("Vui lòng nhập khoảng cách cảnh báo hợp lệ.");
-                return;
-            }
-            
-            warningDistance = newDistance || 500;
-
-            localStorage.setItem('warningEnabled', isWarningEnabled);
-            localStorage.setItem('warningDistance', warningDistance);
-            
-            // Nếu đang live, cập nhật lại interval kiểm tra
-            clearInterval(distanceCheckInterval);
-            if (isLive && isWarningEnabled) {
-                distanceCheckInterval = setInterval(checkMyDistance, 10000);
-            } else {
-                 distanceWarningBanner.classList.add('hidden');
-            }
-            
-            closeSettingsModal();
-        }
-
-        function loadSettings() {
-            const savedEnabled = localStorage.getItem('warningEnabled');
-            const savedDistance = localStorage.getItem('warningDistance');
-            isWarningEnabled = savedEnabled === 'true';
-            if (savedDistance) {
-                warningDistance = parseInt(savedDistance, 10);
-            }
-        }
-        
-        // --- PHẦN 8: LOGIC CẢNH BÁO KHOẢNG CÁCH ---
-        function getDistanceKm(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        function getGroupCenter(locations) {
-            let sumLat = 0, sumLng = 0, count = 0;
-            for (const id in locations) {
-                if (id === currentUser?.uid) continue;
-                sumLat += locations[id].lat;
-                sumLng += locations[id].lng;
-                count++;
-            }
-            if (count === 0) return null;
-            return { lat: sumLat / count, lng: sumLng / count };
-        }
-        
-        function checkMyDistance() {
-            if (!isLive || !myLocation || Object.keys(allLiveUsers).length < 2) {
-                distanceWarningBanner.classList.add('hidden');
-                return;
-            }
-            const groupCenter = getGroupCenter(allLiveUsers);
-            if (!groupCenter) {
-                distanceWarningBanner.classList.add('hidden');
-                return;
-            }
-            const distanceInMeters = getDistanceKm(myLocation[0], myLocation[1], groupCenter.lat, groupCenter.lng) * 1000;
-            if (distanceInMeters > warningDistance) {
-                distanceWarningBanner.classList.remove('hidden');
-                 if (navigator.vibrate) navigator.vibrate(200);
-            } else {
-                distanceWarningBanner.classList.add('hidden');
-            }
-        }
-
-        // --- PHẦN 9: GẮN SỰ KIỆN ---
-        const handleSignIn = () => { signInWithPopup(auth, new GoogleAuthProvider()).catch(e => console.error(e)); };
-        const handleSignOut = () => { removeMyLocationFromDB(); signOut(auth).catch(e => console.error(e)); };
-        
-        loginButton.addEventListener('click', handleSignIn);
-        logoutButton.addEventListener('click', handleSignOut);
-        goLiveButton.addEventListener('click', handleGoLive);
-        recenterButton.addEventListener('click', handleRecenter);
-        fitToAllButton.addEventListener('click', handleFitToAll);
-        wakeLockButton.addEventListener('click', handleWakeLock);
-        
-        memberListButton.addEventListener('click', openSheet);
-        sheetBackdrop.addEventListener('click', closeSheet);
-        memberList.addEventListener('click', (e) => {
-            const messageButton = e.target.closest('.message-button');
-            if (messageButton) {
-                e.stopPropagation();
-                openQuickMessageModal(messageButton.dataset.userId, messageButton.dataset.userName);
-                return;
-            }
-            const listItem = e.target.closest('div[data-user-id]');
-            if (listItem) {
-                handleMemberClick(listItem.dataset.userId);
-            }
-        });
-        
-        messageModalBackdrop.addEventListener('click', closeQuickMessageModal);
-        quickMessageButtons.addEventListener('click', (e) => {
-            if (e.target.tagName === 'BUTTON') sendQuickMessage(e);
-        });
-
-        statusSelector.addEventListener('change', () => {
-            if (isLive && myLocation) {
-                 const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
-                 set(myLocationRef, {
-                    lat: myLocation[0], lng: myLocation[1], name: currentUser.displayName,
-                    photo: currentUser.photoURL,
-                    status: statusSelector.value,
-                    timestamp: serverTimestamp()
+                signOut(auth).then(() => {
+                    window.location.href = window.location.pathname;
                 });
-            }
-        });
-        
-        settingsButton.addEventListener('click', openSettingsModal);
-        settingsModalBackdrop.addEventListener('click', closeSettingsModal);
-        closeSettingsButton.addEventListener('click', closeSettingsModal);
-        saveSettingsButton.addEventListener('click', saveSettings);
-        warningToggle.addEventListener('change', () => {
-            distanceSettings.classList.toggle('hidden', !warningToggle.checked);
-        });
+            });
 
-        if (!('wakeLock' in navigator)) { wakeLockButton.style.display = 'none'; }
+            goLiveButton.addEventListener('click', handleGoLive);
+            memberListButton.addEventListener('click', openSheet);
+            sheetBackdrop.addEventListener('click', closeSheet);
+            
+            memberList.addEventListener('click', (e) => {
+                const listItem = e.target.closest('div[data-user-id]');
+                if (listItem) handleMemberClick(listItem.dataset.userId);
+            });
+            
+            inviteButton.addEventListener('click', () => {
+                navigator.clipboard.writeText(window.location.href);
+                alert('Đã sao chép link mời!');
+            });
+            
+            statusSelector.addEventListener('change', () => {
+                if (isLive && myLocation) updateMyLocation({ coords: { latitude: myLocation[0], longitude: myLocation[1] } });
+            });
+        }
+        
+        createRoomButton.addEventListener('click', createNewRoom);
+        modalLoginButton.addEventListener('click', () => {
+            signInWithPopup(auth, new GoogleAuthProvider()).then(() => {
+                // Sau khi đăng nhập thành công từ modal, tải lại trang
+                // để luồng chính xử lý việc tham gia phòng
+                window.location.reload();
+            });
+        });
     </script>
 </body>
 </html>
