@@ -82,7 +82,8 @@
         // --- PHẦN -1: TÍCH HỢP FIREBASE ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
-        // import { getDatabase } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+        // THÊM CÁC HÀM CỦA REALTIME DATABASE
+        import { getDatabase, ref, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
         // !!! QUAN TRỌNG: Thay thế bằng cấu hình Firebase của bạn
         const firebaseConfig = {
@@ -96,7 +97,8 @@
         };
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        // const db = getDatabase(app);
+        // KHỞI TẠO REALTIME DATABASE
+        const db = getDatabase(app);
 
         // --- PHẦN 0: TỐI ƯU CHIỀU CAO CHO DI ĐỘNG ---
         const setAppHeight = () => { document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`); };
@@ -109,7 +111,6 @@
         const logoutButton = document.getElementById('logoutButton');
         const userPhoto = document.getElementById('userPhoto');
         const userName = document.getElementById('userName');
-
         const playPauseButton = document.getElementById('playPauseButton');
         const stopButton = document.getElementById('stopButton');
         const playIcon = document.getElementById('playIcon');
@@ -123,44 +124,31 @@
         const calorieBurnedDisplay = document.getElementById('calorieBurned');
         
         // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
-        let currentUser = null; // Lưu thông tin người dùng hiện tại
+        let currentUser = null; 
         let map, marker, polyline;
         let userMarkerIcon = L.divIcon({ className: 'user-marker-icon', iconSize: [18, 18] });
         let isTracking = false, isPaused = false, watchId = null, heartRateIntervalId = null;
         let totalDistance = 0, startTime = 0, lastPosition = null;
+        let currentRoute = []; // Mảng lưu các tọa độ của lộ trình
         const USER_WEIGHT_KG = 65;
 
         // --- PHẦN 3: XỬ LÝ AUTHENTICATION ---
-        const provider = new GoogleAuthProvider();
-
-        const handleSignIn = () => {
-            signInWithPopup(auth, provider).catch(error => console.error("Lỗi đăng nhập:", error));
-        };
-
-        const handleSignOut = () => {
-            signOut(auth).catch(error => console.error("Lỗi đăng xuất:", error));
-        };
-
         onAuthStateChanged(auth, user => {
             if (user) {
-                // User is signed in.
                 currentUser = user;
                 loginScreen.classList.add('hidden');
                 appContainer.classList.remove('hidden');
                 appContainer.classList.add('flex');
-                
                 userName.textContent = user.displayName;
                 userPhoto.src = user.photoURL;
-                
-                setAppHeight(); // Recalculate height after UI change
-                if (!map) initMap(); // Khởi tạo map sau khi đăng nhập thành công
+                setAppHeight(); 
+                if (!map) initMap(); 
             } else {
-                // User is signed out.
                 currentUser = null;
                 loginScreen.classList.remove('hidden');
                 appContainer.classList.add('hidden');
                 appContainer.classList.remove('flex');
-                if (isTracking) handleStop(); // Tự động dừng nếu người dùng đăng xuất
+                if (isTracking) handleStop();
             }
         });
 
@@ -175,52 +163,47 @@
             polyline = L.polyline([], { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(map);
         }
 
-        // --- PHẦN 5: LOGIC THEO DÕI (Không thay đổi) ---
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
-            const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        }
-        function startTracking() {
-            const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
-            watchId = navigator.geolocation.watchPosition(updatePosition, handleGeoError, geoOptions);
-            heartRateIntervalId = setInterval(() => { heartRateDisplay.textContent = Math.floor(Math.random() * 81) + 80; }, 2000);
-        }
-        function stopTracking() {
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-            if (heartRateIntervalId) clearInterval(heartRateIntervalId);
-            watchId = heartRateIntervalId = null;
-        }
+        // --- PHẦN 5: LOGIC THEO DÕI ---
+        function calculateDistance(lat1, lon1, lat2, lon2) { /* ... không thay đổi ... */ return 6371e3 * 2 * Math.atan2(Math.sqrt(Math.sin(((lat2-lat1)*Math.PI/180)/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(((lon2-lon1)*Math.PI/180)/2)**2),Math.sqrt(1-(Math.sin(((lat2-lat1)*Math.PI/180)/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(((lon2-lon1)*Math.PI/180)/2)**2)));}
+        function startTracking() { /* ... không thay đổi ... */ watchId = navigator.geolocation.watchPosition(updatePosition, handleGeoError, {enableHighAccuracy:!0,timeout:1e4,maximumAge:0}); heartRateIntervalId=setInterval(()=>{heartRateDisplay.textContent=Math.floor(81*Math.random())+80},2e3); }
+        function stopTracking() { /* ... không thay đổi ... */ if(watchId)navigator.geolocation.clearWatch(watchId);if(heartRateIntervalId)clearInterval(heartRateIntervalId);watchId=heartRateIntervalId=null }
+        
         function updatePosition(position) {
             const { latitude, longitude } = position.coords;
-            const latLng = [latitude, longitude];
+            const latLng = { lat: latitude, lng: longitude }; // Lưu dưới dạng object
+            
             statusMessage.textContent = "Đang theo dõi...";
             coordsDisplay.textContent = `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
-            polyline.addLatLng(latLng);
-            if (!marker) marker = L.marker(latLng, { icon: userMarkerIcon }).addTo(map);
-            else marker.setLatLng(latLng);
-            if (!isPaused) map.panTo(latLng);
+            
+            // Thêm vào mảng lộ trình và vẽ lên bản đồ
+            currentRoute.push(latLng);
+            polyline.addLatLng([latitude, longitude]);
+
+            if (!marker) marker = L.marker([latitude, longitude], { icon: userMarkerIcon }).addTo(map);
+            else marker.setLatLng([latitude, longitude]);
+            if (!isPaused) map.panTo([latitude, longitude]);
+
             if (lastPosition) {
-                totalDistance += calculateDistance(lastPosition.latitude, lastPosition.longitude, latitude, longitude);
+                totalDistance += calculateDistance(lastPosition.lat, lastPosition.lng, latitude, longitude);
                 const elapsedTimeSeconds = (Date.now() - startTime) / 1000;
                 if (elapsedTimeSeconds > 0) averageSpeedDisplay.textContent = ((totalDistance / elapsedTimeSeconds) * 3.6).toFixed(1);
                 calorieBurnedDisplay.textContent = Math.round((totalDistance / 1000) * USER_WEIGHT_KG);
             }
-            lastPosition = { latitude, longitude };
+            lastPosition = latLng;
         }
         function handleGeoError(error) { statusMessage.textContent = `Lỗi vị trí: ${error.message}`; }
 
-        // --- PHẦN 6: HÀM ĐIỀU KHIỂN NÚT BẤM (Không thay đổi) ---
+        // --- PHẦN 6: HÀM ĐIỀU KHIỂN NÚT BẤM ---
         function handlePlayPause() {
             if (!isTracking) { 
                 isTracking = true; isPaused = false;
                 statusMessage.textContent = "Đang tìm vị trí...";
                 playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden');
                 stopButton.classList.remove('hidden'); recenterButton.classList.remove('hidden'); fitBoundsButton.classList.remove('hidden');
+                
                 polyline.setLatLngs([]); if (marker) { marker.remove(); marker = null; }
-                totalDistance = 0; lastPosition = null; startTime = Date.now();
+                totalDistance = 0; lastPosition = null; startTime = Date.now(); currentRoute = [];
+                
                 coordsDisplay.textContent = "--,--"; heartRateDisplay.textContent = "--";
                 averageSpeedDisplay.textContent = "0.0"; calorieBurnedDisplay.textContent = "0";
                 startTracking();
@@ -237,21 +220,64 @@
                 }
             }
         }
+
         function handleStop() {
             if (!isTracking) return;
             stopTracking(); 
-            isTracking = false; isPaused = false; lastPosition = null;
-            statusMessage.textContent = "Buổi tập đã kết thúc!";
+            isTracking = false; isPaused = false;
+            
+            const finalDistance = totalDistance;
+            const finalDuration = Date.now() - startTime;
+            const finalCalories = Math.round((finalDistance / 1000) * USER_WEIGHT_KG);
+
+            // Chỉ lưu nếu có di chuyển
+            if (finalDistance > 10) { 
+                saveSessionToFirebase(finalDistance, finalDuration, finalCalories);
+            } else {
+                statusMessage.textContent = "Buổi tập quá ngắn, không lưu.";
+            }
+
+            lastPosition = null;
             playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden');
             stopButton.classList.add('hidden');
-            // TODO: Lưu dữ liệu buổi tập vào Firebase Realtime Database
-            // const sessionData = { totalDistance, duration: Date.now() - startTime, ... };
-            // push(ref(db, `sessions/${currentUser.uid}`), sessionData);
         }
+
+        // HÀM MỚI: LƯU DỮ LIỆU LÊN FIREBASE
+        function saveSessionToFirebase(distance, duration, calories) {
+            if (!currentUser) {
+                console.error("Không có người dùng, không thể lưu!");
+                return;
+            }
+            statusMessage.textContent = "Đang lưu buổi tập...";
+            
+            const sessionData = {
+                userId: currentUser.uid,
+                createdAt: serverTimestamp(), // Dùng timestamp của server
+                distance: parseFloat(distance.toFixed(2)), // mét
+                duration: duration, // mili giây
+                calories: calories,
+                route: currentRoute // Mảng các tọa độ
+            };
+            
+            const sessionsRef = ref(db, 'sessions/' + currentUser.uid);
+            push(sessionsRef, sessionData)
+                .then(() => {
+                    statusMessage.textContent = "Đã lưu buổi tập!";
+                    console.log("Lưu phiên thành công!");
+                })
+                .catch((error) => {
+                    statusMessage.textContent = "Lỗi khi lưu!";
+                    console.error("Lỗi khi lưu phiên:", error);
+                });
+        }
+
         function handleRecenterMap() { if (marker) map.flyTo(marker.getLatLng(), 17); }
         function handleFitBounds() { if (polyline.getBounds().isValid()) map.flyToBounds(polyline.getBounds(), { padding: [50, 50] }); }
         
         // --- PHẦN 7: GẮN SỰ KIỆN ---
+        const handleSignIn = () => { signInWithPopup(auth, new GoogleAuthProvider()).catch(e => console.error("Lỗi đăng nhập:", e)); };
+        const handleSignOut = () => { signOut(auth).catch(e => console.error("Lỗi đăng xuất:", e)); };
+
         loginButton.addEventListener('click', handleSignIn);
         logoutButton.addEventListener('click', handleSignOut);
         playPauseButton.addEventListener('click', handlePlayPause);
