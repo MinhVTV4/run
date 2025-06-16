@@ -170,7 +170,6 @@
         // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
         let currentUser = null, map, markers, isLive = false, watchId = null;
         let myLocation = null, wakeLock = null, allLiveUsers = {};
-        let markerObjects = {}; // Lưu trữ các đối tượng marker để tham chiếu
         let isWarningEnabled = false;
         let warningDistance = 500;
         let distanceCheckInterval = null;
@@ -270,11 +269,7 @@
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', maxZoom: 20
             }).addTo(map);
-            markers = L.markerClusterGroup({
-                spiderfyOnMaxZoom: true,
-                showCoverageOnHover: false,
-                zoomToBoundsOnClick: true
-            });
+            markers = L.markerClusterGroup();
             map.addLayer(markers);
 
             // Gắn sự kiện để xử lý nút bấm trong popup
@@ -329,7 +324,7 @@
             };
 
             const currentStatus = statusSelector.value;
-            if (currentStatus) {
+            if (currentStatus) { // Chỉ thêm trạng thái nếu người dùng đã chọn
                 payload.status = currentStatus;
             }
             
@@ -345,7 +340,7 @@
         }
 
         function createStatusIcon(photoUrl, status) {
-            let borderColorClass = 'border-gray-400';
+            let borderColorClass = 'border-gray-400'; // Mặc định cho người chưa chọn trạng thái
             if (status === 'Đang di chuyển') borderColorClass = 'border-blue-500';
             if (status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
             if (status === 'Đến nơi') borderColorClass = 'border-green-500';
@@ -364,8 +359,7 @@
                 if (!map) return;
                 allLiveUsers = snapshot.val() || {};
                 markers.clearLayers();
-                markerObjects = {};
-                
+                let newMarkersList = [];
                 Object.keys(allLiveUsers).forEach(userId => {
                     const userData = allLiveUsers[userId];
                     const userLatLng = [userData.lat, userData.lng];
@@ -383,15 +377,9 @@
                     `;
                     newMarker.bindPopup(popupContent);
 
-                    // FIX: Logic click marker đơn giản hóa, để thư viện tự xử lý zoom
-                    // Điều này giải quyết vấn đề click vào marker đã "spiderfied"
-                    newMarker.on('click', (e) => {
-                         e.target.openPopup();
-                    });
-
-                    markers.addLayer(newMarker);
-                    markerObjects[userId] = newMarker;
+                    newMarkersList.push(newMarker);
                 });
+                markers.addLayers(newMarkersList);
                 updateMemberList();
             });
         }
@@ -418,7 +406,7 @@
                 const li = document.createElement('li');
                 li.className = 'flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg';
                 
-                let borderColorClass = 'border-gray-400';
+                let borderColorClass = 'border-gray-400'; // Default for no status
                 if (userData.status === 'Đang di chuyển') borderColorClass = 'border-blue-500';
                 if (userData.status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
                 if (userData.status === 'Đến nơi') borderColorClass = 'border-green-500';
@@ -445,18 +433,7 @@
             });
         }
         
-        // FIX: Tối ưu hóa logic click thành viên từ danh sách
-        function handleMemberClick(userId) {
-            const marker = markerObjects[userId];
-            if (map && marker) {
-                closeSheet();
-                // zoomToShowLayer là hàm chuẩn của thư viện để zoom tới marker,
-                // nó sẽ tự động mở cluster và spiderfy nếu cần.
-                markers.zoomToShowLayer(marker, function () {
-                    marker.openPopup();
-                });
-            }
-        }
+        function handleMemberClick(userId) { const user = allLiveUsers[userId]; if (user && map) { map.flyTo([user.lat, user.lng], 18); closeSheet(); } }
 
         // --- PHẦN 8: LOGIC TIN NHẮN & CÀI ĐẶT ---
         function openQuickMessageModal(recipientId, recipientName) { messageRecipientName.textContent = `Gửi tin nhắn cho ${recipientName}`; quickMessageModal.dataset.recipientId = recipientId; quickMessageModal.classList.remove('hidden'); requestAnimationFrame(() => { messageModalContent.classList.remove('scale-95', 'opacity-0'); messageModalContent.classList.add('scale-100', 'opacity-100'); }); }
