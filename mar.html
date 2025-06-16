@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marathon Tracker</title>
+    
+    <!-- Tích hợp Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tích hợp LeafletJS cho bản đồ -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- CSS tùy chỉnh bổ sung -->
+    <style>
+        :root { --app-height: 100%; }
+        html, body {
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+            height: var(--app-height);
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            background-color: #f3f4f6;
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+        .leaflet-popup-content {
+            margin: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-slate-800 font-sans">
+
+    <!-- MÀN HÌNH ĐĂNG NHẬP -->
+    <div id="loginScreen" class="flex flex-col items-center justify-center h-full p-4 text-center">
+        <h1 class="text-3xl font-bold text-teal-600 mb-4">Marathon Tracker</h1>
+        <p class="text-gray-600 mb-8">Đăng nhập để tham gia và chia sẻ vị trí của bạn</p>
+        <button id="loginButton" class="bg-white px-4 py-2 rounded-full shadow-md font-semibold text-gray-700 flex items-center gap-3 hover:bg-gray-200">
+            <svg class="w-6 h-6" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.902,35.61,44,29.593,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
+            Đăng nhập với Google
+        </button>
+    </div>
+
+    <!-- GIAO DIỆN CHÍNH CỦA ỨNG DỤNG -->
+    <div id="appContainer" class="hidden h-full flex flex-col">
+        <header class="bg-white shadow-md py-2 px-4 flex-shrink-0 flex justify-between items-center">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <img id="userPhoto" class="w-8 h-8 rounded-full" src="" alt="User photo">
+                <span id="userName" class="text-sm font-semibold text-slate-700 truncate"></span>
+            </div>
+            <button id="logoutButton" class="text-sm text-gray-600 hover:text-red-500 font-semibold flex-shrink-0">Đăng xuất</button>
+        </header>
+
+        <main id="map" class="flex-grow relative">
+            <!-- Bản đồ -->
+        </main>
+        
+        <footer class="bg-white/80 backdrop-blur-sm p-3 text-center">
+             <button id="goLiveButton" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all">
+                Bắt đầu chia sẻ vị trí
+            </button>
+            <div id="statusMessage" class="hidden mt-2 text-sm text-gray-600">
+                Đang chia sẻ vị trí...
+            </div>
+        </footer>
+    </div>
+    
+    <script type="module">
+        // --- PHẦN -1: TÍCH HỢP FIREBASE ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+        import { getDatabase, ref, set, onValue, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDn-3B1ZNCq9E9XuNoHHHiyIo_Pegy8Ogk",
+            authDomain: "ailocal-7501e.firebaseapp.com",
+            databaseURL: "https://ailocal-7501e-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ailocal-7501e",
+            storageBucket: "ailocal-7501e.appspot.com",
+            messagingSenderId: "21856417488",
+            appId: "1:21856417488:web:c3542543f12cab547b90d5"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        // --- PHẦN 0: CÀI ĐẶT CHUNG ---
+        const EVENT_ID = "marathon_2025"; // Mã định danh cho sự kiện
+        const setAppHeight = () => { document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`); };
+        window.addEventListener('resize', setAppHeight);
+        setAppHeight();
+        
+        // --- PHẦN 1: THAM CHIẾU HTML ---
+        const loginScreen = document.getElementById('loginScreen');
+        const appContainer = document.getElementById('appContainer');
+        const loginButton = document.getElementById('loginButton');
+        const logoutButton = document.getElementById('logoutButton');
+        const userPhoto = document.getElementById('userPhoto');
+        const userName = document.getElementById('userName');
+        const goLiveButton = document.getElementById('goLiveButton');
+        const statusMessage = document.getElementById('statusMessage');
+
+        // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
+        let currentUser = null; 
+        let map;
+        let isLive = false;
+        let watchId = null;
+        let userMarkers = {}; // Lưu trữ marker của tất cả user
+
+        // --- PHẦN 3: XỬ LÝ AUTHENTICATION ---
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                currentUser = user;
+                loginScreen.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                appContainer.classList.add('flex');
+                userName.textContent = user.displayName;
+                userPhoto.src = user.photoURL;
+                if (!map) initMap(); 
+                listenToLiveLocations();
+            } else {
+                currentUser = null;
+                loginScreen.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+                appContainer.classList.remove('flex');
+                if (isLive) handleGoLive(); // Tự động dừng chia sẻ nếu đăng xuất
+            }
+        });
+
+        // --- PHẦN 4: KHỞI TẠO MAP ---
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([21.0285, 105.8542], 13);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                maxZoom: 20
+            }).addTo(map);
+        }
+
+        // --- PHẦN 5: LOGIC CHIA SẺ VỊ TRÍ ---
+
+        // Bắt đầu hoặc dừng chia sẻ vị trí
+        function handleGoLive() {
+            isLive = !isLive;
+            if (isLive) {
+                goLiveButton.textContent = "Dừng chia sẻ";
+                goLiveButton.classList.replace('bg-teal-500', 'bg-red-500');
+                goLiveButton.classList.replace('hover:bg-teal-600', 'hover:bg-red-600');
+                statusMessage.classList.remove('hidden');
+
+                const geoOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+                watchId = navigator.geolocation.watchPosition(updateMyLocation, handleGeoError, geoOptions);
+            } else {
+                goLiveButton.textContent = "Bắt đầu chia sẻ vị trí";
+                goLiveButton.classList.replace('bg-red-500', 'bg-teal-500');
+                goLiveButton.classList.replace('hover:bg-red-600', 'hover:bg-teal-600');
+                statusMessage.classList.add('hidden');
+
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                removeMyLocationFromDB();
+            }
+        }
+        
+        // Cập nhật vị trí của BẢN THÂN lên Firebase
+        function updateMyLocation(position) {
+            if (!currentUser) return;
+            const { latitude, longitude } = position.coords;
+            const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
+            
+            set(myLocationRef, {
+                lat: latitude,
+                lng: longitude,
+                name: currentUser.displayName,
+                photo: currentUser.photoURL,
+                timestamp: serverTimestamp()
+            });
+            
+            // Tự động xóa vị trí khi ngắt kết nối
+            onDisconnect(myLocationRef).remove();
+        }
+
+        // Xóa vị trí của bản thân khỏi DB khi dừng chia sẻ
+        function removeMyLocationFromDB() {
+             if (!currentUser) return;
+             const myLocationRef = ref(db, `live_locations/${EVENT_ID}/${currentUser.uid}`);
+             set(myLocationRef, null);
+        }
+
+        // Lắng nghe vị trí của TẤT CẢ MỌI NGƯỜI
+        function listenToLiveLocations() {
+            const eventRef = ref(db, `live_locations/${EVENT_ID}`);
+            onValue(eventRef, (snapshot) => {
+                const locations = snapshot.val();
+                if (!locations) {
+                    // Xóa tất cả marker nếu không còn ai trong sự kiện
+                    Object.values(userMarkers).forEach(marker => marker.remove());
+                    userMarkers = {};
+                    return;
+                }
+                
+                // Đồng bộ hóa các marker
+                Object.keys(locations).forEach(userId => {
+                    const userData = locations[userId];
+                    const userLatLng = [userData.lat, userData.lng];
+
+                    if (userMarkers[userId]) {
+                        // Cập nhật vị trí marker đã có
+                        userMarkers[userId].setLatLng(userLatLng);
+                    } else {
+                        // Tạo marker mới
+                        const icon = L.icon({
+                            iconUrl: userData.photo,
+                            iconSize: [40, 40],
+                            className: 'rounded-full border-2 border-white shadow-md'
+                        });
+                        const newMarker = L.marker(userLatLng, { icon: icon }).addTo(map);
+                        newMarker.bindPopup(userData.name);
+                        userMarkers[userId] = newMarker;
+                    }
+                });
+
+                // Xóa marker của những người đã offline
+                Object.keys(userMarkers).forEach(userId => {
+                    if (!locations[userId]) {
+                        userMarkers[userId].remove();
+                        delete userMarkers[userId];
+                    }
+                });
+            });
+        }
+        
+        function handleGeoError(error) {
+            console.error(error);
+            alert(`Lỗi vị trí: ${error.message}`);
+            if (isLive) handleGoLive(); // Tự động tắt nếu có lỗi
+        }
+
+        // --- PHẦN 6: GẮN SỰ KIỆN ---
+        const handleSignIn = () => { signInWithPopup(auth, new GoogleAuthProvider()).catch(e => console.error(e)); };
+        const handleSignOut = () => { removeMyLocationFromDB(); signOut(auth).catch(e => console.error(e)); };
+
+        loginButton.addEventListener('click', handleSignIn);
+        logoutButton.addEventListener('click', handleSignOut);
+        goLiveButton.addEventListener('click', handleGoLive);
+
+    </script>
+</body>
+</html>
