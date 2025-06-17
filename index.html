@@ -16,7 +16,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.Default.css" />
     <script src="https://unpkg.com/leaflet.markercluster@1.5.1/dist/leaflet.markercluster.js"></script>
-    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#14b8a6">
     <!-- CSS tùy chỉnh -->
     <style>
         :root { --app-height: 100%; }
@@ -108,6 +109,12 @@
     </div>
     
     <script type="module">
+	if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js')
+    .then(() => console.log("✅ Service Worker đã đăng ký"))
+    .catch(err => console.error("❌ Không thể đăng ký Service Worker", err));
+}
+
         // --- PHẦN -1: TÍCH HỢP FIREBASE ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
