@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Marathon Tracker</title>
     
-    <!-- Tích hợp Tailwind CSS -->
+    <!-- Integrate Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Tích hợp LeafletJS cho bản đồ -->
+    <!-- Integrate LeafletJS for map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
@@ -18,7 +18,7 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.5.1/dist/leaflet.markercluster.js"></script>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#14b8a6">
-    <!-- CSS tùy chỉnh -->
+    <!-- Custom CSS -->
     <style>
         :root { --app-height: 100%; }
         html, body {
@@ -39,26 +39,26 @@
         .map-control-button.active { background-color: #14b8a6; color: white; }
         .custom-marker-icon img { width: 100%; height: 100%; border-radius: 9999px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
         .hidden { display: none; }
-        #bottomSheetContainer, #quickMessageModal, #settingsModal, #notificationToast { transition: all 0.3s ease-in-out; }
-        #sheetBackdrop, #messageModalBackdrop, #settingsModalBackdrop { transition: opacity 0.3s ease-in-out; }
-        #memberSheet, #messageModalContent, #settingsModalContent { transition: transform 0.3s ease-in-out; }
+        #bottomSheetContainer, #quickMessageModal, #settingsModal, #notificationToast, #emailAuthModal { transition: all 0.3s ease-in-out; }
+        #sheetBackdrop, #messageModalBackdrop, #settingsModalBackdrop, #emailAuthModalBackdrop { transition: opacity 0.3s ease-in-out; }
+        #memberSheet, #messageModalContent, #settingsModalContent, #emailAuthModalContent { transition: transform 0.3s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-100 text-slate-800">
 
-    <!-- MÀN HÌNH CHÍNH / TẠO PHÒNG -->
+    <!-- MAIN SCREEN / CREATE ROOM -->
     <div id="homeScreen" class="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-50">
         <div class="max-w-md mx-auto">
             <h1 class="text-4xl font-bold text-teal-600 mb-4">Live Tracker Platform</h1>
             <p class="text-gray-600 mb-8 text-lg">Tạo phòng theo dõi riêng cho đội nhóm, sự kiện hoặc bạn bè của bạn trong vài giây.</p>
             <div id="authDependentUI">
-                <!-- Nội dung này sẽ được điền bằng JS sau khi kiểm tra trạng thái đăng nhập -->
+                <!-- This content will be populated by JS after checking login status -->
             </div>
             <p class="mt-8 text-sm text-gray-500">Tham gia một phòng? Chỉ cần mở link mời bạn bè đã gửi cho bạn.</p>
         </div>
     </div>
 
-    <!-- GIAO DIỆN CHÍNH CỦA ỨNG DỤNG (TRONG PHÒNG) -->
+    <!-- MAIN APP INTERFACE (IN ROOM) -->
     <div id="appContainer" class="hidden h-full flex flex-col">
         <header class="bg-white shadow-md py-2 px-4 flex-shrink-0 flex justify-between items-center z-10">
             <div class="flex items-center gap-2 overflow-hidden">
@@ -98,10 +98,40 @@
         </footer>
     </div>
 
-    <!-- CÁC MODAL & BOTTOM SHEET -->
+    <!-- MODALS & BOTTOM SHEETS -->
     <div id="bottomSheetContainer" class="hidden fixed inset-0 z-[2000]"><div id="sheetBackdrop" class="absolute inset-0 bg-black bg-opacity-50"></div><div id="memberSheet" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl max-h-[70vh] flex flex-col transform translate-y-full"><div class="p-4 border-b flex-shrink-0"><h2 class="text-xl font-bold text-teal-600 text-center">Thành viên trong phòng</h2></div><ul id="memberList" class="overflow-y-auto p-2"></ul></div></div>
     <div id="quickMessageModal" class="hidden fixed inset-0 z-[3000] flex items-center justify-center p-4"><div id="messageModalBackdrop" class="absolute inset-0 bg-black bg-opacity-60"></div><div id="messageModalContent" class="bg-white rounded-lg shadow-xl w-full max-w-xs transform scale-95 opacity-0"><div class="p-4 border-b"><h3 id="messageRecipientName" class="font-bold text-center"></h3></div><div id="quickMessageButtons" class="p-2 grid grid-cols-1 gap-2"><button class="w-full text-left p-3 hover:bg-gray-100 rounded-lg">Đang đến!</button><button class="w-full text-left p-3 hover:bg-gray-100 rounded-lg">Cần hỗ trợ?</button><button class="w-full text-left p-3 hover:bg-gray-100 rounded-lg">OK!</button><button class="w-full text-left p-3 hover:bg-gray-100 rounded-lg">Đợi chút nhé!</button></div></div></div>
     <div id="settingsModal" class="hidden fixed inset-0 z-[4000] flex items-center justify-center p-4"><div id="settingsModalBackdrop" class="absolute inset-0 bg-black bg-opacity-60"></div><div id="settingsModalContent" class="bg-white rounded-lg shadow-xl w-full max-w-sm transform scale-95 opacity-0"><div class="p-4 border-b flex justify-between items-center"><h3 class="font-bold text-lg">Cài đặt</h3><button id="closeSettingsButton" class="font-bold text-xl">&times;</button></div><div class="p-4 space-y-4"><div class="flex items-center justify-between"><label for="warningToggle" class="font-medium text-gray-900">Bật cảnh báo khoảng cách</label><label class="inline-flex relative items-center cursor-pointer"><input type="checkbox" id="warningToggle" class="sr-only peer"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div></label></div><div id="distanceSettings" class="hidden space-y-2"><label for="distanceInput" class="block text-sm font-medium text-gray-900">Cảnh báo khi xa nhóm hơn (mét):</label><input type="number" id="distanceInput" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="500" required /></div><hr><button id="saveSettingsButton" class="w-full text-white bg-teal-600 hover:bg-teal-700 focus:ring-4 focus:outline-none focus:ring-teal-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Lưu & Đóng</button></div></div></div>
+
+    <!-- EMAIL AUTH MODAL -->
+    <div id="emailAuthModal" class="hidden fixed inset-0 z-[4500] flex items-center justify-center p-4">
+        <div id="emailAuthModalBackdrop" class="absolute inset-0 bg-black bg-opacity-60"></div>
+        <div id="emailAuthModalContent" class="bg-white rounded-lg shadow-xl w-full max-w-sm transform scale-95 opacity-0">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 id="emailAuthModalTitle" class="font-bold text-lg">Đăng nhập</h3>
+                <button id="closeEmailAuthModalButton" class="font-bold text-xl">&times;</button>
+            </div>
+            <form id="emailAuthForm" class="p-4 space-y-4">
+                <div>
+                    <label for="emailInput" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="emailInput" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm" required>
+                </div>
+                <div>
+                    <label for="passwordInput" class="block text-sm font-medium text-gray-700">Mật khẩu</label>
+                    <input type="password" id="passwordInput" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm" required>
+                </div>
+                <button type="submit" id="emailAuthSubmitButton" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
+                    Đăng nhập
+                </button>
+                <button type="button" id="toggleToRegisterButton" class="w-full text-center text-sm text-teal-600 hover:text-teal-800">
+                    Chưa có tài khoản? Đăng ký ngay
+                </button>
+                <button type="button" id="toggleToLoginButton" class="hidden w-full text-center text-sm text-teal-600 hover:text-teal-800">
+                    Đã có tài khoản? Đăng nhập
+                </button>
+            </form>
+        </div>
+    </div>
 
     <!-- TOAST NOTIFICATION -->
     <div id="notificationToast" class="fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-md opacity-0 -translate-y-10 z-[5000]">
@@ -111,13 +141,16 @@
     <script type="module">
 	if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./service-worker.js')
-    .then(() => console.log("✅ Service Worker đã đăng ký"))
-    .catch(err => console.error("❌ Không thể đăng ký Service Worker", err));
+    .then(() => console.log("✅ Service Worker registered"))
+    .catch(err => console.error("❌ Failed to register Service Worker", err));
 }
 
-        // --- PHẦN -1: TÍCH HỢP FIREBASE ---
+        // --- PART -1: FIREBASE INTEGRATION ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+        import { 
+            getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut,
+            createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile 
+        } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
         import { getDatabase, ref, set, onValue, get, onDisconnect, serverTimestamp, push, remove, onChildAdded } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
 
         const firebaseConfig = {
@@ -133,13 +166,13 @@
         const auth = getAuth(app);
         const db = getDatabase(app);
 
-        // --- PHẦN 0: CÀI ĐẶT CHUNG ---
+        // --- PART 0: GENERAL SETTINGS ---
         let currentRoomId = null;
         const setAppHeight = () => { document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`); };
         window.addEventListener('resize', setAppHeight);
         setAppHeight();
         
-        // --- PHẦN 1: THAM CHIẾU HTML ---
+        // --- PART 1: HTML REFERENCES ---
         const homeScreen = document.getElementById('homeScreen');
         const appContainer = document.getElementById('appContainer');
         const authDependentUI = document.getElementById('authDependentUI');
@@ -173,32 +206,47 @@
         const inviteButton = document.getElementById('inviteButton');
         const notificationToast = document.getElementById('notificationToast');
 
-        // --- PHẦN 2: BIẾN TRẠNG THÁI & LOGIC ---
+        // Email Auth Modal elements
+        const emailAuthModal = document.getElementById('emailAuthModal');
+        const emailAuthModalBackdrop = document.getElementById('emailAuthModalBackdrop');
+        const emailAuthModalContent = document.getElementById('emailAuthModalContent');
+        const closeEmailAuthModalButton = document.getElementById('closeEmailAuthModalButton');
+        const emailAuthModalTitle = document.getElementById('emailAuthModalTitle');
+        const emailAuthForm = document.getElementById('emailAuthForm');
+        const emailInput = document.getElementById('emailInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const emailAuthSubmitButton = document.getElementById('emailAuthSubmitButton');
+        const toggleToRegisterButton = document.getElementById('toggleToRegisterButton');
+        const toggleToLoginButton = document.getElementById('toggleToLoginButton');
+
+
+        // --- PART 2: STATE VARIABLES & LOGIC ---
         let currentUser = null, map, markers, isLive = false, watchId = null;
         let myLocation = null, wakeLock = null, allLiveUsers = {};
         let isWarningEnabled = false;
         let warningDistance = 500;
         let distanceCheckInterval = null;
+        let isRegisterMode = false; // To toggle between login and register forms
 
-        // --- PHẦN 3: LOGIC KHỞI TẠO & ĐIỀU HƯỚNG ---
+        // --- PART 3: INITIALIZATION & NAVIGATION LOGIC ---
         
-        // Hàm chính điều khiển giao diện dựa trên trạng thái đăng nhập và URL
+        // Main function controlling UI based on login status and URL
         onAuthStateChanged(auth, user => {
             currentUser = user;
             const params = new URLSearchParams(window.location.search);
             currentRoomId = params.get('room');
 
             if (currentRoomId) {
-                // Nếu có room ID trong URL
+                // If room ID exists in URL
                 if (currentUser) {
-                    // Đã đăng nhập -> Vào phòng
+                    // Logged in -> Enter room
                     showAppView();
                 } else {
-                    // Chưa đăng nhập -> Hiện màn hình đăng nhập để vào phòng
+                    // Not logged in -> Show login screen to join room
                     showLoginToJoinView();
                 }
             } else {
-                // Nếu không có room ID -> Ở màn hình chính
+                // If no room ID -> Stay on home screen
                 showHomeView();
             }
         });
@@ -209,15 +257,18 @@
             let content = '';
             if (currentUser) {
                 content = `
-                    <p class="mb-4 text-gray-700">Chào, ${currentUser.displayName}!</p>
+                    <p class="mb-4 text-gray-700">Chào, ${currentUser.displayName || currentUser.email}!</p>
                     <button id="createRoomButton" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all text-lg">Tạo phòng mới</button>
                     <button id="homeLogoutButton" class="mt-4 text-sm text-gray-500 hover:text-red-500">Đăng xuất</button>
                 `;
             } else {
                 content = `
-                    <button id="homeLoginButton" class="bg-white px-6 py-3 rounded-full shadow-md font-semibold text-gray-700 flex items-center gap-3 hover:bg-gray-200 mx-auto">
+                    <button id="homeLoginGoogleButton" class="bg-white px-6 py-3 rounded-full shadow-md font-semibold text-gray-700 flex items-center gap-3 hover:bg-gray-200 mx-auto mb-4">
                         <svg class="w-6 h-6" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.902,35.61,44,29.593,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
-                        Đăng nhập với Google để tạo phòng
+                        Đăng nhập với Google
+                    </button>
+                    <button id="homeLoginEmailButton" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all text-lg">
+                        Đăng nhập bằng Email
                     </button>
                 `;
             }
@@ -229,20 +280,23 @@
             appContainer.classList.add('hidden');
             authDependentUI.innerHTML = `
                 <p class="mb-4 text-gray-700 font-semibold">Bạn cần đăng nhập để tham gia phòng này.</p>
-                <button id="homeLoginButton" class="bg-white px-6 py-3 rounded-full shadow-md font-semibold text-gray-700 flex items-center gap-3 hover:bg-gray-200 mx-auto">
+                <button id="homeLoginGoogleButton" class="bg-white px-6 py-3 rounded-full shadow-md font-semibold text-gray-700 flex items-center gap-3 hover:bg-gray-200 mx-auto mb-4">
                     <svg class="w-6 h-6" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.902,35.61,44,29.593,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
                     Đăng nhập với Google
+                </button>
+                <button id="homeLoginEmailButton" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-teal-600 transition-all text-lg mt-4">
+                    Đăng nhập bằng Email
                 </button>
             `;
         }
         
         async function showAppView() {
-            // Kiểm tra xem phòng có tồn tại không
+            // Check if room exists
             const roomRef = ref(db, `rooms/${currentRoomId}`);
             const snapshot = await get(roomRef);
             if (!snapshot.exists()) {
                 alert("Phòng này không tồn tại hoặc đã bị xóa.");
-                window.location.href = window.location.pathname; // Quay về trang chủ
+                window.location.href = window.location.pathname; // Go back to home page
                 return;
             }
             
@@ -260,13 +314,13 @@
             loadSettings();
         }
 
-        // --- PHẦN 4: TẠO PHÒNG VÀ AUTHENTICATION ---
+        // --- PART 4: ROOM CREATION AND AUTHENTICATION ---
         async function createRoom() {
             if (!currentUser) {
                 alert("Bạn cần đăng nhập để tạo phòng.");
                 return;
             }
-            const roomName = prompt("Nhập tên cho phòng của bạn:", `Nhóm của ${currentUser.displayName}`);
+            const roomName = prompt("Nhập tên cho phòng của bạn:", `Nhóm của ${currentUser.displayName || currentUser.email}`);
             if (!roomName || roomName.trim() === '') {
                 alert("Tên phòng không được để trống.");
                 return;
@@ -284,10 +338,77 @@
             window.location.href = `${window.location.pathname}?room=${newRoomId}`;
         }
         
-        const handleSignIn = () => { signInWithPopup(auth, new GoogleAuthProvider()).catch(e => console.error(e)); };
+        const handleSignInGoogle = () => { signInWithPopup(auth, new GoogleAuthProvider()).catch(e => console.error(e)); };
         const handleSignOut = () => { if (isLive) { handleGoLive(); } removeMyLocationFromDB(); signOut(auth).catch(e => console.error(e)); };
 
-        // --- PHẦN 5: KHỞI TẠO MAP ---
+        // --- Email/Password Auth Functions ---
+        function openEmailAuthModal(mode) {
+            isRegisterMode = (mode === 'register');
+            emailAuthModalTitle.textContent = isRegisterMode ? 'Đăng ký' : 'Đăng nhập';
+            emailAuthSubmitButton.textContent = isRegisterMode ? 'Đăng ký' : 'Đăng nhập';
+            toggleToRegisterButton.classList.toggle('hidden', isRegisterMode);
+            toggleToLoginButton.classList.toggle('hidden', !isRegisterMode);
+            emailAuthForm.reset(); // Clear form fields
+            emailAuthModal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                emailAuthModalContent.classList.remove('scale-95', 'opacity-0');
+                emailAuthModalContent.classList.add('scale-100', 'opacity-100');
+            });
+        }
+
+        function closeEmailAuthModal() {
+            emailAuthModalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                emailAuthModal.classList.add('hidden');
+            }, 200);
+        }
+
+        async function handleEmailAuth(event) {
+            event.preventDefault();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            if (isRegisterMode) {
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    // Prompt for display name for new email users
+                    let displayName = prompt("Nhập tên hiển thị của bạn (ví dụ: Tên của bạn):", email.split('@')[0]);
+                    if (!displayName || displayName.trim() === '') {
+                        displayName = email.split('@')[0]; // Default to part of email if empty
+                    }
+                    await updateProfile(userCredential.user, {
+                        displayName: displayName,
+                        photoURL: `https://placehold.co/40x40/aabbcc/ffffff?text=${displayName.charAt(0).toUpperCase()}` // Placeholder avatar
+                    });
+                    closeEmailAuthModal();
+                    // Auth state change listener will handle navigation
+                } catch (error) {
+                    let errorMessage = "Đăng ký thất bại. Vui lòng thử lại.";
+                    if (error.code === 'auth/email-already-in-use') {
+                        errorMessage = "Email này đã được sử dụng. Vui lòng đăng nhập hoặc sử dụng email khác.";
+                    } else if (error.code === 'auth/weak-password') {
+                        errorMessage = "Mật khẩu quá yếu. Vui lòng nhập mật khẩu ít nhất 6 ký tự.";
+                    }
+                    alert(errorMessage);
+                    console.error("Email registration error:", error);
+                }
+            } else {
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    closeEmailAuthModal();
+                    // Auth state change listener will handle navigation
+                } catch (error) {
+                    let errorMessage = "Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.";
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                        errorMessage = "Email hoặc mật khẩu không đúng.";
+                    }
+                    alert(errorMessage);
+                    console.error("Email login error:", error);
+                }
+            }
+        }
+
+        // --- PART 5: MAP INITIALIZATION ---
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([21.0285, 105.8542], 13);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -298,7 +419,7 @@
             map.addLayer(markers);
         }
 
-        // --- PHẦN 6: LOGIC CHIA SẺ VỊ TRÍ & TRẠNG THÁI (ĐÃ CẬP NHẬT PATH) ---
+        // --- PART 6: LOCATION SHARING & STATUS LOGIC (UPDATED PATH) ---
         function handleGoLive() {
             isLive = !isLive;
             const controlsContainer = document.getElementById('controlsContainer');
@@ -334,8 +455,9 @@
             const myLocationRef = ref(db, `rooms/${currentRoomId}/live_locations/${currentUser.uid}`);
             const currentStatus = statusSelector.value;
             set(myLocationRef, {
-                lat: latitude, lng: longitude, name: currentUser.displayName,
-                photo: currentUser.photoURL, status: currentStatus,
+                lat: latitude, lng: longitude, name: currentUser.displayName || currentUser.email,
+                photo: currentUser.photoURL || `https://placehold.co/40x40/aabbcc/ffffff?text=${(currentUser.displayName || currentUser.email).charAt(0).toUpperCase()}`, 
+                status: currentStatus,
                 timestamp: serverTimestamp()
             });
             onDisconnect(myLocationRef).remove();
@@ -353,8 +475,10 @@
             if (status === 'Dừng nghỉ') borderColorClass = 'border-yellow-400';
             if (status === 'Đến nơi') borderColorClass = 'border-green-500';
             if (status === 'Gặp sự cố') borderColorClass = 'border-red-600';
+            // Ensure photoUrl is valid, otherwise use a placeholder
+            const finalPhotoUrl = photoUrl && photoUrl.startsWith('http') ? photoUrl : `https://placehold.co/40x40/aabbcc/ffffff?text=U`;
             return L.divIcon({
-                html: `<div class="w-full h-full bg-white rounded-full p-0.5"><img src="${photoUrl}" class="w-full h-full rounded-full border-2 ${borderColorClass}"></div>`,
+                html: `<div class="w-full h-full bg-white rounded-full p-0.5"><img src="${finalPhotoUrl}" class="w-full h-full rounded-full border-2 ${borderColorClass}"></div>`,
                 className: 'custom-marker-icon', iconSize: [40, 40],
                 iconAnchor: [20, 40], popupAnchor: [0, -40]
             });
@@ -390,7 +514,7 @@
             if (isLive) handleGoLive();
         }
 
-        // --- PHẦN 7: HÀM ĐIỀU KHIỂN & GIAO DIỆN PHỤ ---
+        // --- PART 7: CONTROL FUNCTIONS & SECONDARY UI ---
         function handleRecenter() {
             if (myLocation && map) map.flyTo(myLocation, 16);
             else alert("Chưa có vị trí của bạn để định vị.");
@@ -437,10 +561,13 @@
                 
                 const isCurrentUser = userId === currentUser?.uid;
                 
+                // Ensure photoUrl is valid, otherwise use a placeholder
+                const userPhotoUrl = userData.photo && userData.photo.startsWith('http') ? userData.photo : `https://placehold.co/40x40/aabbcc/ffffff?text=${(userData.name || 'U').charAt(0).toUpperCase()}`;
+
                 li.innerHTML = `
                     <div class="flex-grow flex items-center gap-3 cursor-pointer" data-user-id="${userId}">
                         <div class="relative">
-                            <img src="${userData.photo}" class="w-10 h-10 rounded-full border-2 ${borderColorClass}">
+                            <img src="${userPhotoUrl}" class="w-10 h-10 rounded-full border-2 ${borderColorClass}">
                             ${isCurrentUser ? '<span class="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-400 ring-2 ring-white"></span>' : ''}
                         </div>
                         <div>
@@ -458,7 +585,7 @@
         
         function handleMemberClick(userId) { const user = allLiveUsers[userId]; if (user && map) { map.flyTo([user.lat, user.lng], 18); closeSheet(); } }
 
-        // --- PHẦN 8: LOGIC TIN NHẮN & CÀI ĐẶT (ĐÃ CẬP NHẬT PATH) ---
+        // --- PART 8: MESSAGE & SETTINGS LOGIC (UPDATED PATH) ---
         function openQuickMessageModal(recipientId, recipientName) { messageRecipientName.textContent = `Gửi tin nhắn cho ${recipientName}`; quickMessageModal.dataset.recipientId = recipientId; quickMessageModal.classList.remove('hidden'); requestAnimationFrame(() => { messageModalContent.classList.remove('scale-95', 'opacity-0'); messageModalContent.classList.add('scale-100', 'opacity-100'); }); }
         function closeQuickMessageModal() { messageModalContent.classList.add('scale-95', 'opacity-0'); setTimeout(() => { quickMessageModal.classList.add('hidden'); }, 200); }
 
@@ -468,7 +595,7 @@
             if (!recipientId || !currentUser || !currentRoomId) return;
             const messagesRef = ref(db, `rooms/${currentRoomId}/messages/${recipientId}`);
             push(messagesRef, {
-                fromId: currentUser.uid, fromName: currentUser.displayName,
+                fromId: currentUser.uid, fromName: currentUser.displayName || currentUser.email,
                 text: messageText, timestamp: serverTimestamp()
             }).then(() => { closeQuickMessageModal(); }).catch(err => console.error("Gửi tin nhắn thất bại:", err));
         }
@@ -518,16 +645,17 @@
             if (savedDistance) { warningDistance = parseInt(savedDistance, 10); }
         }
         
-        // --- PHẦN 9: LOGIC CẢNH BÁO KHOẢNG CÁCH ---
+        // --- PART 9: DISTANCE WARNING LOGIC ---
         function getDistanceKm(lat1, lon1, lat2, lon2) { const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180; const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return R * c; }
         function getGroupCenter(locations) { let sumLat = 0, sumLng = 0, count = 0; for (const id in locations) { if (id === currentUser?.uid) continue; sumLat += locations[id].lat; sumLng += locations[id].lng; count++; } if (count === 0) return null; return { lat: sumLat / count, lng: sumLng / count }; }
         function checkMyDistance() { if (!isLive || !myLocation || Object.keys(allLiveUsers).length < 2) { distanceWarningBanner.classList.add('hidden'); return; } const groupCenter = getGroupCenter(allLiveUsers); if (!groupCenter) { distanceWarningBanner.classList.add('hidden'); return; } const distanceInMeters = getDistanceKm(myLocation[0], myLocation[1], groupCenter.lat, groupCenter.lng) * 1000; if (distanceInMeters > warningDistance) { distanceWarningBanner.classList.remove('hidden'); if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } else { distanceWarningBanner.classList.add('hidden'); } }
 
-        // --- PHẦN 10: GẮN SỰ KIỆN ---
-        // Sử dụng event delegation cho các nút trên màn hình chính
+        // --- PART 10: EVENT LISTENERS ---
+        // Use event delegation for buttons on home screen
         homeScreen.addEventListener('click', (e) => {
             if (e.target.id === 'createRoomButton') createRoom();
-            if (e.target.id === 'homeLoginButton' || e.target.closest('#homeLoginButton')) handleSignIn();
+            if (e.target.id === 'homeLoginGoogleButton' || e.target.closest('#homeLoginGoogleButton')) handleSignInGoogle();
+            if (e.target.id === 'homeLoginEmailButton') openEmailAuthModal('login');
             if (e.target.id === 'homeLogoutButton') signOut(auth);
         });
         
@@ -570,6 +698,13 @@
         warningToggle.addEventListener('change', () => { distanceSettings.classList.toggle('hidden', !warningToggle.checked); });
 
         if (!('wakeLock' in navigator)) { wakeLockButton.style.display = 'none'; }
+
+        // Email Auth Modal Event Listeners
+        emailAuthModalBackdrop.addEventListener('click', closeEmailAuthModal);
+        closeEmailAuthModalButton.addEventListener('click', closeEmailAuthModal);
+        emailAuthForm.addEventListener('submit', handleEmailAuth);
+        toggleToRegisterButton.addEventListener('click', () => openEmailAuthModal('register'));
+        toggleToLoginButton.addEventListener('click', () => openEmailAuthModal('login'));
     </script>
 </body>
 </html>
